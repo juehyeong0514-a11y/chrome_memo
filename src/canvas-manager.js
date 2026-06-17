@@ -12,7 +12,7 @@
       this.canvas = document.createElement("canvas");
       this.canvas.className = "wae-canvas";
       this.eraserPreview = document.createElement("div");
-      this.eraserPreview.className = "wae-eraser-preview";
+      this.eraserPreview.className = "wae-tool-cursor-preview";
       this.ctx = this.canvas.getContext("2d");
       this.resizeFrame = 0;
       this.dprQuery = null;
@@ -56,8 +56,8 @@
         top: "0",
         width: "24px",
         height: "24px",
-        border: "2px solid rgba(248,113,113,.78)",
-        background: "rgba(248,113,113,.08)",
+        border: "1.5px solid rgba(15,23,42,.78)",
+        background: "rgba(255,255,255,.12)",
         borderRadius: "50%",
         boxSizing: "border-box",
         transform: "translate(-9999px,-9999px)",
@@ -114,7 +114,26 @@
         this.hideEraserPreview();
         return;
       }
-      const size = Math.max(5, Math.min(100, Number(state.size) || 24));
+      const tool = state.tool || "eraser";
+      const size = Math.max(1, Math.min(140, Number(state.size) || 24));
+      const color = state.color || (tool === "eraser" ? "#f87171" : "#111111");
+      if (tool === "eraser") {
+        this.eraserPreview.style.border = "2px solid rgba(248,113,113,.82)";
+        this.eraserPreview.style.background = "rgba(248,113,113,.08)";
+        this.eraserPreview.style.mixBlendMode = "normal";
+      } else if (tool === "highlighter") {
+        this.eraserPreview.style.border = `1px solid ${color}`;
+        this.eraserPreview.style.background = color;
+        this.eraserPreview.style.opacity = String(Math.max(0.18, Math.min(0.45, WAE.CONFIG.highlighterOpacity)));
+        this.eraserPreview.style.mixBlendMode = "multiply";
+      } else {
+        this.eraserPreview.style.border = `1.5px solid ${color}`;
+        this.eraserPreview.style.background = "rgba(255,255,255,.08)";
+        this.eraserPreview.style.mixBlendMode = "normal";
+      }
+      if (tool !== "highlighter") {
+        this.eraserPreview.style.opacity = "1";
+      }
       this.eraserPreview.style.display = "block";
       this.eraserPreview.style.width = `${size}px`;
       this.eraserPreview.style.height = `${size}px`;

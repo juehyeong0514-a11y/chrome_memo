@@ -4,9 +4,9 @@
   const WAE = window.WebAnnotationExtension;
 
   class Toolbar {
-    constructor({ state, onTool, onMode, onUndo, onRedo, onClear, onHide, onColor, onWidth, onPenType, onPenSettings, onEraserSize, onPosition }) {
+    constructor({ state, onTool, onMode, onUndo, onRedo, onClear, onHide, onColor, onWidth, onPenType, onPenSettings, onEraserSize, onTextSettings, onCustomColors, onPosition, onCaptureMain, onCaptureOption }) {
       this.state = state;
-      this.handlers = { onTool, onMode, onUndo, onRedo, onClear, onHide, onColor, onWidth, onPenType, onPenSettings, onEraserSize, onPosition };
+      this.handlers = { onTool, onMode, onUndo, onRedo, onClear, onHide, onColor, onWidth, onPenType, onPenSettings, onEraserSize, onTextSettings, onCustomColors, onPosition, onCaptureMain, onCaptureOption };
       this.host = document.createElement("div");
       this.host.className = "wae-toolbar-host";
       this.host.style.cssText = "position:fixed;z-index:2147483647;left:0;top:0;width:max-content;height:max-content;pointer-events:auto";
@@ -22,6 +22,9 @@
       this.dragStart = null;
       this.previousUserSelect = "";
       this.cleanupCallbacks = [];
+      this.colorTarget = "penColor";
+      this.colorPickerTarget = "penColor";
+      this.previewColor = "";
     }
 
     mount(savedPosition) {
@@ -42,11 +45,13 @@
         colorButton: this.shadow.querySelector(".wae-color-button"),
         colorDot: this.shadow.querySelector(".wae-current-color"),
         colorPopover: this.shadow.querySelector(".wae-color-popover"),
-        colorInput: this.shadow.querySelector(".wae-color-input"),
         widthButton: this.shadow.querySelector(".wae-width-button"),
         widthPreview: this.shadow.querySelector(".wae-width-preview"),
         widthPopover: this.shadow.querySelector(".wae-width-popover"),
-        settings: this.shadow.querySelector(".wae-settings"),
+        textSplit: this.shadow.querySelector(".wae-text-split"),
+        textMainButton: this.shadow.querySelector(".wae-text-main"),
+        textDropdownButton: this.shadow.querySelector(".wae-text-dropdown"),
+        textPopover: this.shadow.querySelector(".wae-text-popover"),
         settingsPanel: this.shadow.querySelector(".wae-settings-panel"),
         settingsIcon: this.shadow.querySelector(".wae-settings-pen-icon"),
         settingsTitle: this.shadow.querySelector(".wae-settings-title"),
@@ -71,6 +76,24 @@
         highlighter: this.shadow.querySelector(".wae-highlighter"),
         hide: this.shadow.querySelector(".wae-hide"),
         clear: this.shadow.querySelector(".wae-clear")
+        ,
+        captureSplit: this.shadow.querySelector(".wae-capture-split"),
+        captureMainButton: this.shadow.querySelector(".wae-capture-main"),
+        captureDropdownButton: this.shadow.querySelector(".wae-capture-dropdown"),
+        capturePopover: this.shadow.querySelector(".wae-capture-popover")
+        ,
+        colorSVCanvas: this.shadow.querySelector('.wae-color-sv-canvas'),
+        colorSVCursor: this.shadow.querySelector('.wae-color-sv-cursor'),
+        hueCanvas: this.shadow.querySelector('.wae-hue-canvas'),
+        hueCursor: this.shadow.querySelector('.wae-hue-cursor'),
+        previewBox: this.shadow.querySelector('.wae-color-preview'),
+        rInput: this.shadow.querySelector('.wae-r-input'),
+        gInput: this.shadow.querySelector('.wae-g-input'),
+        bInput: this.shadow.querySelector('.wae-b-input'),
+        hexInput: this.shadow.querySelector('.wae-hex-input'),
+        defaultColors: this.shadow.querySelectorAll('.wae-default-color'),
+        customColorsList: this.shadow.querySelector(".wae-my-colors-list"),
+        addCustomColorButton: this.shadow.querySelector(".wae-add-my-color")
       };
       this.bind();
       this.applyStoredPosition(savedPosition);
@@ -110,6 +133,15 @@
       if (type === "panel-down") {
         return `<svg ${common}><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M5 15h14"/><path d="M9 9l3 3 3-3"/></svg>`;
       }
+      if (type === "camera") {
+        return `<svg ${common}><path d="M4.5 8.2h3l1.4-2h6.2l1.4 2h3a1.8 1.8 0 0 1 1.8 1.8v7.1a1.8 1.8 0 0 1-1.8 1.8h-15A1.8 1.8 0 0 1 2.7 17.1V10a1.8 1.8 0 0 1 1.8-1.8z"/><circle cx="12" cy="13.3" r="3.1"/><path d="M18 10.3h.1"/></svg>`;
+      }
+      if (type === "text") {
+        return `<svg ${common}><path d="M5 5h14"/><path d="M12 5v14"/><path d="M9 19h6"/></svg>`;
+      }
+      if (type === "collapse-door") {
+        return `<svg ${common}><path d="M5 4.5h8.5a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5z"/><path d="M9.5 4.5v15"/><path d="M15.5 12h4.2"/><path d="M17.8 9.8l2.2 2.2-2.2 2.2"/><path d="M7.6 12h.1"/></svg>`;
+      }
       return `<svg ${common}><path d="M4 20l4.6-1.1L19.3 8.2a2.2 2.2 0 0 0-3.1-3.1L5.5 15.8 4 20z"/><path d="M14.8 6.5l2.7 2.7"/></svg>`;
     }
 
@@ -133,23 +165,24 @@
         ".wae-root.expand-up .wae-menu{grid-template-areas:'bar' 'handle'}",
         ".wae-root.expand-up .wae-drag-handle{grid-area:handle}",
         ".wae-root.expand-up .wae-bar{grid-area:bar}",
-        ".wae-icon-btn,.wae-pen-split,.wae-eraser-split,.wae-color-button,.wae-width-button,.wae-settings,.wae-navigation,.wae-collapse{box-sizing:border-box;height:var(--button-size);border:1px solid rgba(148,163,184,.18);border-radius:calc(10px * var(--toolbar-scale));background:rgba(255,255,255,.08);color:#f8fafc;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}",
-        ".wae-icon-btn,.wae-settings,.wae-color-button,.wae-width-button,.wae-navigation,.wae-collapse{width:var(--button-size)}",
+        ".wae-icon-btn,.wae-pen-split,.wae-text-split,.wae-capture-split,.wae-eraser-split,.wae-color-button,.wae-width-button,.wae-navigation,.wae-collapse{box-sizing:border-box;height:var(--button-size);border:1px solid rgba(148,163,184,.18);border-radius:calc(10px * var(--toolbar-scale));background:rgba(255,255,255,.08);color:#f8fafc;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}",
+        ".wae-icon-btn,.wae-color-button,.wae-width-button,.wae-navigation,.wae-collapse{width:var(--button-size)}",
         ".wae-icon-btn{font-size:calc(20px * var(--toolbar-scale));line-height:1}",
         ".wae-icon-btn:disabled{opacity:.34;cursor:default;filter:saturate(.5)}",
         ".wae-undo-redo{display:inline-flex;gap:calc(4px * var(--toolbar-scale))}",
         ".wae-pen-split{min-width:calc(60px * var(--toolbar-scale));padding:0;overflow:hidden;background:rgba(255,255,255,.08)}",
-        ".wae-eraser-split{min-width:calc(56px * var(--toolbar-scale));padding:0;overflow:hidden;background:rgba(255,255,255,.08)}",
-        ".wae-pen-main,.wae-pen-dropdown,.wae-eraser-main,.wae-eraser-dropdown{height:100%;border:0;background:transparent;color:inherit;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}",
+        ".wae-text-split,.wae-capture-split,.wae-eraser-split{min-width:calc(56px * var(--toolbar-scale));padding:0;overflow:hidden;background:rgba(255,255,255,.08)}",
+        ".wae-pen-main,.wae-pen-dropdown,.wae-text-main,.wae-text-dropdown,.wae-capture-main,.wae-capture-dropdown,.wae-eraser-main,.wae-eraser-dropdown{height:100%;border:0;background:transparent;color:inherit;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}",
         ".wae-pen-main{width:calc(39px * var(--toolbar-scale))}",
-        ".wae-eraser-main{width:calc(35px * var(--toolbar-scale))}",
+        ".wae-text-main,.wae-capture-main,.wae-eraser-main{width:calc(35px * var(--toolbar-scale))}",
         ".wae-pen-dropdown{width:calc(20px * var(--toolbar-scale));border-left:1px solid rgba(148,163,184,.24);font-size:calc(10px * var(--toolbar-scale));color:#bfdbfe}",
+        ".wae-text-dropdown,.wae-capture-dropdown{width:calc(19px * var(--toolbar-scale));border-left:1px solid rgba(148,163,184,.24);font-size:calc(10px * var(--toolbar-scale));color:#bfdbfe}",
         ".wae-eraser-dropdown{width:calc(19px * var(--toolbar-scale));border-left:1px solid rgba(148,163,184,.24);font-size:calc(10px * var(--toolbar-scale));color:#fecaca}",
-        ".wae-pen-main:hover,.wae-pen-dropdown:hover,.wae-eraser-main:hover,.wae-eraser-dropdown:hover{background:rgba(255,255,255,.08)}",
+        ".wae-pen-main:hover,.wae-pen-dropdown:hover,.wae-text-main:hover,.wae-text-dropdown:hover,.wae-capture-main:hover,.wae-capture-dropdown:hover,.wae-eraser-main:hover,.wae-eraser-dropdown:hover{background:rgba(255,255,255,.08)}",
         ".wae-active{border-color:#60a5fa!important;background:rgba(59,130,246,.34)!important;box-shadow:0 0 0 1px rgba(96,165,250,.48) inset}",
-        ".wae-collapse{margin-left:calc(7px * var(--toolbar-scale));border-color:rgba(148,163,184,.34)!important;background:rgba(30,41,59,.92)!important;color:#dbeafe;position:relative}",
+        ".wae-collapse{margin-left:calc(7px * var(--toolbar-scale));border-color:rgba(148,163,184,.30)!important;background:linear-gradient(180deg, rgba(30,41,59,.96), rgba(15,23,42,.96));color:#dbeafe;position:relative;border-radius:calc(10px * var(--toolbar-scale));box-shadow:none!important}",
         ".wae-collapse::before{content:'';position:absolute;left:calc(-5px * var(--toolbar-scale));top:18%;width:1px;height:64%;background:rgba(148,163,184,.35)}",
-        ".wae-collapse:hover{background:rgba(51,65,85,.98)!important;border-color:rgba(191,219,254,.48)!important}",
+        ".wae-collapse:hover{background:linear-gradient(180deg, rgba(51,65,85,.98), rgba(17,24,39,.98))!important;border-color:rgba(191,219,254,.52)!important;color:#eff6ff}",
         ".wae-collapse:active{transform:translateY(1px)}",
         ".wae-popover,.wae-settings-panel{position:fixed;left:0;top:0;right:auto;bottom:auto;box-sizing:border-box;border:1px solid rgba(148,163,184,.22);background:rgba(15,23,42,.98);box-shadow:0 14px 34px rgba(0,0,0,.35);z-index:2147483647;opacity:0;pointer-events:none;transform:translate(var(--wae-popover-shift-x,0),var(--wae-popover-shift-y,4px)) scale(.95);transition:opacity 150ms ease,transform 150ms ease;transform-origin:var(--wae-origin,left top)}",
         ".wae-popover.wae-mounted{display:grid;gap:4px}",
@@ -157,12 +190,13 @@
         ".wae-popover.wae-open,.wae-settings-panel.wae-open{opacity:1;pointer-events:auto;transform:translate(0,0) scale(1)}",
         ".wae-popover.wae-closing,.wae-settings-panel.wae-closing{opacity:0;pointer-events:none;transform:translate(var(--wae-close-shift-x,0),var(--wae-close-shift-y,4px)) scale(.85)}",
         ".wae-popover:not(.wae-mounted),.wae-settings-panel:not(.wae-mounted){display:none}",
-        ".wae-pen-popover{min-width:132px;padding:6px;border-radius:12px}",
+        ".wae-pen-popover{min-width:166px;padding:6px;border-radius:12px}",
         ".wae-eraser-popover{min-width:132px;padding:6px;border-radius:12px}",
         ".wae-list-item{height:32px;border:0;border-radius:9px;background:transparent;color:#e5e7eb;display:flex;align-items:center;gap:8px;padding:0 8px;cursor:pointer;text-align:left;font-size:12px;font-weight:700}",
         ".wae-list-item:hover{background:rgba(255,255,255,.08)}",
         ".wae-list-item.wae-active{background:rgba(59,130,246,.28)!important}",
         ".wae-list-item svg{width:19px;height:19px}",
+        ".wae-pen-separator{height:1px;background:rgba(148,163,184,.22);margin:5px 4px}",
         ".wae-danger-item{height:32px;border:0;border-radius:9px;background:rgba(248,113,113,.10);color:#fecaca;display:flex;align-items:center;gap:8px;padding:0 9px;cursor:pointer;text-align:left;font-size:12px;font-weight:800}",
         ".wae-danger-item:hover{background:rgba(248,113,113,.20);color:#fee2e2}",
         ".wae-eraser-preview-row{display:flex;align-items:center;gap:9px;padding:4px 6px 8px;color:#cbd5e1;font-size:12px;font-weight:800}",
@@ -185,11 +219,24 @@
         ".wae-current-color{width:calc(18px * var(--toolbar-scale));height:calc(18px * var(--toolbar-scale));border-radius:50%;border:1px solid rgba(255,255,255,.45);box-shadow:0 0 0 1px rgba(0,0,0,.18)}",
         ".wae-width-preview{width:calc(22px * var(--toolbar-scale));height:calc(18px * var(--toolbar-scale));display:flex;align-items:center;justify-content:center}",
         ".wae-width-preview span,.wae-width-line{display:block;width:calc(21px * var(--toolbar-scale));border-radius:999px;background:#f8fafc}",
-        ".wae-color-popover{width:154px;grid-template-columns:repeat(6,1fr);gap:6px;padding:6px;border-radius:12px}",
+        ".wae-color-popover{min-width:240px;min-height:260px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;display:grid;gap:8px;padding:8px;border-radius:12px;background:transparent}",
+        ".wae-color-popover.wae-mounted{display:block!important;width:min(272px,calc(100vw - 16px));min-height:300px;max-height:calc(100vh - 16px);overflow:auto;padding:10px;border-radius:12px;background:rgba(15,23,42,.98)}",
+        ".wae-color-panel{box-sizing:border-box;display:grid;gap:9px;width:100%;min-height:280px}",
+        ".wae-color-sv{position:relative;width:100%;height:148px;border-radius:8px;overflow:hidden;touch-action:none;cursor:crosshair;background:#f00}",
+        ".wae-color-sv-canvas,.wae-hue-canvas{display:block;width:100%;height:100%}",
+        ".wae-hue-bar{position:relative;width:100%;height:18px;border-radius:999px;overflow:hidden;touch-action:none;cursor:pointer}",
+        ".wae-color-input{box-sizing:border-box;width:100%;min-width:0;padding:6px;border-radius:7px;background:rgba(255,255,255,.06);color:#fff;border:1px solid rgba(255,255,255,.12);font-size:12px}",
+        ".wae-default-color{position:relative;width:28px;height:28px;border-radius:6px;border:1px solid rgba(148,163,184,.35);cursor:pointer}",
+        ".wae-default-color.wae-active,.wae-my-color.wae-active,.wae-color-chip.wae-active{box-shadow:0 0 0 2px #38bdf8,0 0 0 4px rgba(56,189,248,.18)}",
+        ".wae-my-color-head{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#cbd5e1;font-size:11px;font-weight:800}",
+        ".wae-add-my-color{height:26px;border:1px solid rgba(148,163,184,.25);border-radius:8px;background:rgba(255,255,255,.08);color:#e5e7eb;font-size:11px;font-weight:800;cursor:pointer;padding:0 8px}",
+        ".wae-my-colors-list{display:flex;flex-wrap:wrap;gap:6px;min-height:24px}",
+        ".wae-my-color{position:relative;width:24px;height:24px;border-radius:50%;border:1px solid rgba(148,163,184,.45);cursor:pointer;padding:0}",
+        ".wae-my-color-delete{position:absolute;right:-5px;top:-5px;width:15px;height:15px;border:0;border-radius:50%;background:#0f172a;color:#fff;font-size:11px;line-height:15px;padding:0;display:none;cursor:pointer}",
+        ".wae-my-color:hover .wae-my-color-delete{display:block}",
         ".wae-color-chip,.wae-custom-color{position:relative;width:22px;height:22px;border-radius:50%;border:1px solid rgba(148,163,184,.35);cursor:pointer;background:transparent}",
-        ".wae-color-chip.wae-active::after,.wae-width-choice.wae-active::after{content:'✓';position:absolute;right:-4px;bottom:-4px;width:13px;height:13px;border-radius:50%;background:#38bdf8;color:#fff;font-size:9px;line-height:13px;text-align:center;font-weight:800}",
+        ".wae-color-chip.wae-active::after,.wae-my-color.wae-active::after,.wae-default-color.wae-active::after,.wae-width-choice.wae-active::after{content:'✓';position:absolute;right:-4px;bottom:-4px;width:13px;height:13px;border-radius:50%;background:#38bdf8;color:#fff;font-size:9px;line-height:13px;text-align:center;font-weight:800}",
         ".wae-custom-color{display:grid;place-items:center;color:#fff;font-size:14px;font-weight:800;background:linear-gradient(135deg,#ef4444,#facc15,#22c55e,#2563eb,#a855f7)}",
-        ".wae-color-input{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}",
         ".wae-width-popover{width:174px;padding:8px;border-radius:12px}",
         ".wae-width-choice{position:relative;height:32px;border:0;border-radius:9px;background:transparent;color:#e5e7eb;display:grid;grid-template-columns:52px 1fr;align-items:center;gap:7px;padding:0 8px;cursor:pointer;text-align:left;font-size:12px;font-weight:700}",
         ".wae-width-choice:hover{background:rgba(255,255,255,.08)}",
@@ -223,18 +270,56 @@
         '      <span class="wae-pen-split" role="group" aria-label="펜 도구"><button class="wae-pen-main" title="필기 시작" aria-label="필기 시작"><span class="wae-pen-icon"></span></button><button class="wae-pen-dropdown" title="펜 종류 선택" aria-label="펜 종류 선택">▼</button></span>',
         '      <button class="wae-color-button" title="색상 선택" aria-label="색상 선택"><span class="wae-current-color"></span></button>',
         '      <button class="wae-width-button" title="펜 굵기" aria-label="펜 굵기"><span class="wae-width-preview"><span></span></span></button>',
-        '      <button class="wae-settings" title="펜 설정" aria-label="펜 설정">' + this.icon("settings") + "</button>",
+        '      <span class="wae-text-split" role="group" aria-label="텍스트 도구"><button class="wae-text-main" title="텍스트 입력" aria-label="텍스트 입력">' + this.icon("text") + '</button><button class="wae-text-dropdown" title="텍스트 설정" aria-label="텍스트 설정">▼</button></span>',
+        '      <span class="wae-capture-split" role="group" aria-label="화면 캡처 도구"><button class="wae-capture-main" title="전체 화면 캡처" aria-label="전체 화면 캡처">' + this.icon("camera") + '</button><button class="wae-capture-dropdown" title="캡처 메뉴" aria-label="캡처 메뉴">▼</button></span>',
         '      <span class="wae-eraser-split" role="group" aria-label="지우개 도구"><button class="wae-eraser-main" title="지우개" aria-label="지우개">' + this.icon("eraser") + '</button><button class="wae-eraser-dropdown" title="지우개 메뉴" aria-label="지우개 메뉴">▼</button></span>',
         '      <button class="wae-navigation" title="탐색 모드" aria-label="탐색 모드">' + this.icon("eye") + "</button>",
-        '      <button class="wae-collapse" title="도구막대 접기" aria-label="도구막대 접기">‹</button>',
+        '      <button class="wae-collapse" title="도구막대 접기" aria-label="도구막대 접기">' + this.icon("collapse-door") + '</button>',
         "    </div>",
-        "  </div>",
+          "  </div>",
         '  <div class="wae-popover wae-pen-popover" data-popover="pen"></div>',
-        '  <div class="wae-popover wae-color-popover" data-popover="color"></div>',
+        '  <div class="wae-popover wae-color-popover" data-popover="color">',
+        '    <div class="wae-color-panel">',
+        '      <div>',
+        '        <div class="wae-color-sv">',
+        '          <canvas class="wae-color-sv-canvas" width="252" height="148"></canvas>',
+        '          <div class="wae-color-sv-cursor" style="position:absolute;width:14px;height:14px;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,0.6),0 0 6px rgba(255,255,255,0.6);transform:translate(-7px,-7px);pointer-events:none"></div>',
+        '        </div>',
+        '      </div>',
+        '      <div class="wae-hue-bar">',
+        '        <canvas class="wae-hue-canvas" width="252" height="18"></canvas>',
+        '        <div class="wae-hue-cursor" style="position:absolute;top:50%;transform:translate(-5px,-50%);width:10px;height:24px;border-radius:999px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,0.45),0 2px 8px rgba(0,0,0,0.4);pointer-events:none"></div>',
+        '      </div>',
+        '      <div style="display:flex;align-items:center;gap:10px">',
+        '        <div class="wae-color-preview" style="width:40px;height:40px;border-radius:8px;border:1px solid rgba(255,255,255,0.08)"></div>',
+        '        <div style="flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:6px">',
+        '          <input class="wae-r-input wae-color-input" type="number" min="0" max="255" placeholder="R">',
+        '          <input class="wae-g-input wae-color-input" type="number" min="0" max="255" placeholder="G">',
+        '          <input class="wae-b-input wae-color-input" type="number" min="0" max="255" placeholder="B">',
+        '        </div>',
+        '      </div>',
+        '      <div style="display:flex;gap:8px;align-items:center">',
+        '        <input class="wae-hex-input wae-color-input" type="text" maxlength="7" placeholder="#RRGGBB" style="flex:1">',
+        '        <div style="display:flex;gap:6px">',
+        '          <button class="wae-default-color" data-color="#000000" style="background:#000"></button>',
+        '          <button class="wae-default-color" data-color="#ffffff" style="background:#fff"></button>',
+        '          <button class="wae-default-color" data-color="#ff0000" style="background:#f00"></button>',
+        '          <button class="wae-default-color" data-color="#0000ff" style="background:#00f"></button>',
+        '          <button class="wae-default-color" data-color="#00ff00" style="background:#0f0"></button>',
+        '          <button class="wae-default-color" data-color="#ffff00" style="background:#ff0"></button>',
+        '        </div>',
+        '      </div>',
+        '      <div>',
+        '        <div class="wae-my-color-head"><span>내 색상</span><button class="wae-add-my-color" type="button">＋ 내 색상에 추가</button></div>',
+        '        <div class="wae-my-colors-list"></div>',
+        '      </div>',
+        '    </div>',
+        '  </div>',
         '  <div class="wae-popover wae-width-popover" data-popover="width"></div>',
+        '  <div class="wae-popover wae-text-popover" data-popover="text"></div>',
+            '  <div class="wae-popover wae-capture-popover" data-popover="capture"><div style="display:grid;gap:6px;min-width:140px;padding:6px;border-radius:10px"><button class="wae-list-item" data-capture-option="full">전체 화면 캡처</button><button class="wae-list-item" data-capture-option="selection">선택 영역 캡처</button></div></div>',
         '  <div class="wae-popover wae-eraser-popover" data-popover="eraser"></div>',
-        '  <input class="wae-color-input" type="color" aria-label="사용자 색상 선택">',
-        '  <div class="wae-clear-confirm" role="dialog" aria-modal="true" aria-label="전체 지우기 확인"><div class="wae-clear-dialog"><p class="wae-clear-message">현재 페이지의 모든 필기를 지울까요?</p><div class="wae-clear-actions"><button class="wae-clear-cancel" type="button">취소</button><button class="wae-clear-confirm-button" type="button">전체 지우기</button></div></div></div>',
+        '  <div class="wae-clear-confirm" role="dialog" aria-modal="true" aria-label="전체 지우기 확인"><div class="wae-clear-dialog"><p class="wae-clear-message">현재 페이지의 모든 필기와 텍스트를 지울까요?</p><div class="wae-clear-actions"><button class="wae-clear-cancel" type="button">취소</button><button class="wae-clear-confirm-button" type="button">전체 지우기</button></div></div></div>',
         '  <div class="wae-settings-panel" data-popover="settings">',
         '    <div class="wae-settings-head"><span class="wae-settings-pen-icon"></span><div class="wae-settings-title"></div><button class="wae-settings-close" title="닫기">×</button></div>',
         '    <div class="wae-preview"><svg class="wae-preview-line" viewBox="0 0 210 28"><path d="M8 19 C 45 3, 73 25, 111 12 S 169 7, 202 17" fill="none"/></svg></div>',
@@ -275,8 +360,19 @@
         event.stopPropagation();
         this.togglePopover("pen", this.refs.penButton);
       });
+      this.refs.captureMainButton && this.refs.captureMainButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        this.closeAllPopovers();
+        if (this.handlers.onCaptureMain) this.handlers.onCaptureMain();
+      });
+      this.refs.captureDropdownButton && this.refs.captureDropdownButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        this.togglePopover("capture", this.refs.captureDropdownButton);
+      });
       this.refs.colorButton.addEventListener("click", (event) => {
         event.stopPropagation();
+        this.colorTarget = "penColor";
+        this.colorPickerTarget = "penColor";
         this.togglePopover("color", this.refs.colorButton);
       });
       this.refs.widthButton.addEventListener("click", (event) => {
@@ -284,11 +380,22 @@
         this.handlers.onTool("pen");
         this.togglePopover("width", this.refs.widthButton);
       });
-      this.refs.colorInput.addEventListener("input", () => this.selectColor(this.refs.colorInput.value));
-      this.refs.settings.addEventListener("click", () => {
-        this.handlers.onTool("pen");
-        this.togglePopover("settings", this.refs.settings);
+      this.refs.textMainButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        this.closeAllPopovers();
+        this.handlers.onTool("text");
+        this.update();
       });
+      this.refs.textDropdownButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        this.togglePopover("text", this.refs.textDropdownButton);
+      });
+      // initialize color canvas draw
+      try {
+        if (this.refs.hueCanvas && this.refs.colorSVCanvas) {
+          this._initColorPopover();
+        }
+      } catch (e) {}
       this.refs.settingsClose.addEventListener("click", () => this.closePopover("settings"));
       this.refs.undo.addEventListener("click", this.handlers.onUndo);
       this.refs.redo.addEventListener("click", this.handlers.onRedo);
@@ -309,7 +416,12 @@
         event.stopPropagation();
         this.closeToolbar();
       });
-      this.refs.sliders.forEach((input) => input.addEventListener("input", () => this.onSlider(input)));
+      this.refs.sliders.forEach((input) => {
+        this.bindNativeRangeSlider(input, {
+          onInput: () => this.onSlider(input),
+          onChange: () => this.onSlider(input)
+        });
+      });
       this.refs.roundnessChoices.forEach((button) => button.addEventListener("click", () => this.updateCurrentPen({ roundness: Number(button.dataset.roundness) })));
       this.refs.widths.forEach((button) => button.addEventListener("click", () => this.selectWidth(Number(button.dataset.width), false)));
       this.refs.highlighter.addEventListener("click", () => {
@@ -330,18 +442,44 @@
         this.update();
       });
       this.shadow.addEventListener("click", (event) => {
+        if (this.refs.colorPopover && event.composedPath && event.composedPath().includes(this.refs.colorPopover)) {
+          return;
+        }
         const pen = event.target.closest("[data-pen-type]");
+        const penTool = event.target.closest("[data-pen-tool]");
         const color = event.target.closest("[data-color]");
         const custom = event.target.closest("[data-custom-color]");
         const width = event.target.closest("[data-width-choice]");
         const eraserSize = event.target.closest("[data-eraser-size]");
+        const textSetting = event.target.closest("[data-text-setting]");
+        const textColor = event.target.closest("[data-text-color-target]");
         const clearAll = event.target.closest("[data-clear-all]");
         if (pen) this.selectPenType(pen.dataset.penType);
+        if (penTool) this.selectPenTool(penTool.dataset.penTool);
         if (color) this.selectColor(color.dataset.color);
-        if (custom) this.refs.colorInput.click();
+        if (custom) this.togglePopover('color', this.refs.colorButton);
         if (width) this.selectWidth(Number(width.dataset.widthChoice), false);
         if (eraserSize) this.selectEraserSize(Number(eraserSize.dataset.eraserSize), false);
+        if (textSetting) this.applyTextSetting(textSetting);
+        if (textColor) {
+          this.colorTarget = "textColor";
+          this.colorPickerTarget = this.colorTarget;
+          this.togglePopover("color", this.refs.colorButton);
+        }
         if (clearAll) this.confirmClearAll();
+        const captureOption = event.target.closest("[data-capture-option]");
+        if (captureOption) {
+          const opt = captureOption.dataset.captureOption;
+          this.closePopover({ type: "capture", anchorElement: this.refs.captureDropdownButton, keepPositionDuringClose: true });
+          if (this.handlers.onCaptureOption) this.handlers.onCaptureOption(opt);
+        }
+      });
+      this.shadow.addEventListener("input", (event) => {
+        const textSetting = event.target.closest && event.target.closest("[data-text-setting]");
+        if (textSetting && (textSetting.type === "range" || textSetting.type === "checkbox")) {
+          event.stopPropagation();
+          this.applyTextSetting(textSetting);
+        }
       });
       const outsidePointerDown = (event) => {
         if (!event.composedPath || !event.composedPath().includes(this.host)) {
@@ -366,6 +504,14 @@
       this.cleanupCallbacks.push(() => document.removeEventListener("fullscreenchange", fullscreenHandler));
     }
 
+    hideForCapture() {
+      if (this.host) this.host.style.display = "none";
+    }
+
+    restoreAfterCapture() {
+      if (this.host) this.host.style.display = "";
+    }
+
     destroy() {
       this.closeAllPopovers();
       this.hideClearConfirm();
@@ -388,6 +534,8 @@
         pen: this.refs.penPopover,
         color: this.refs.colorPopover,
         width: this.refs.widthPopover,
+        text: this.refs.textPopover,
+        capture: this.refs.capturePopover,
         eraser: this.refs.eraserPopover,
         settings: this.refs.settingsPanel
       }[type];
@@ -398,8 +546,10 @@
         pen: this.refs.penButton,
         color: this.refs.colorButton,
         width: this.refs.widthButton,
+        text: this.refs.textDropdownButton,
+        capture: this.refs.captureDropdownButton,
         eraser: this.refs.eraserDropdownButton,
-        settings: this.refs.settings
+        settings: this.refs.penDropdownButton
       }[type];
     }
 
@@ -420,10 +570,26 @@
       this.popoverStates.set(type, { status: "open" });
       popover.classList.remove("wae-closing");
       popover.classList.add("wae-mounted");
+      popover.style.visibility = "hidden";
+      if (type === 'color') {
+        this.colorPickerTarget = this.colorTarget || "penColor";
+        this.previewColor = this.getCurrentPickerColor();
+      }
       this.update();
       window.requestAnimationFrame(() => {
         this.positionPopover(popover, anchor || this.getAnchor(type));
+        popover.style.visibility = "visible";
         popover.classList.add("wae-open");
+        if (type === 'color') {
+          // initialize canvases and controls to current color
+          try {
+            this._drawHue();
+            this._drawSV();
+            const rgb = this._hexToRgb(this.getCurrentPickerColor()) || {r:0,g:0,b:0};
+            this._applyRGB(rgb.r, rgb.g, rgb.b, { apply: false });
+            this.renderMyColors();
+          } catch (e) {}
+        }
       });
     }
 
@@ -480,7 +646,9 @@
         if (event && event.target !== popover) return;
         popover.removeEventListener("transitionend", finish);
         if (this.activePopover === type) return;
+        if (type === 'color') this.previewColor = "";
         popover.classList.remove("wae-mounted", "wae-closing");
+        popover.style.visibility = "";
         popover.style.width = "";
         popover.style.height = "";
         this.popoverStates.set(type, { status: "closed" });
@@ -490,7 +658,7 @@
     }
 
     closeAllPopovers(exceptType) {
-      ["pen", "color", "width", "eraser", "settings"].forEach((type) => {
+      ["pen", "color", "width", "text", "capture", "eraser", "settings"].forEach((type) => {
         if (type !== exceptType) {
           this.closePopover({ type, anchorElement: this.getAnchor(type), keepPositionDuringClose: true });
         }
@@ -508,7 +676,7 @@
     closeToolbar() {
       if (!this.state.menuOpen || this.toolbarClosing) return;
       this.closeAllPopovers();
-      const metrics = this.prepareCollapseToPenButton();
+      this.setMenuOriginFromCollapsedButton();
       this.toolbarClosing = true;
       this.state.menuOpen = false;
       this.update();
@@ -522,21 +690,6 @@
         window.clearTimeout(timer);
         this.toolbarClosing = false;
         this.update();
-        const collapsedButtonRect = this.refs.toggle.getBoundingClientRect();
-        const collapsedCenterX = collapsedButtonRect.left + collapsedButtonRect.width / 2;
-        const collapsedCenterY = collapsedButtonRect.top + collapsedButtonRect.height / 2;
-        console.log({
-          toolbarRect: metrics.toolbarRect,
-          penRect: metrics.penRect,
-          penCenterX: metrics.penCenterX,
-          penCenterY: metrics.penCenterY,
-          collapsedButtonRect,
-          toolbarPosition: this.state.toolbarPosition,
-          centerDelta: {
-            x: collapsedCenterX - metrics.penCenterX,
-            y: collapsedCenterY - metrics.penCenterY
-          }
-        });
       };
 
       this.refs.menu.addEventListener("transitionend", finish);
@@ -649,42 +802,26 @@
       this.updateCollapseIcon();
     }
 
-    prepareCollapseToPenButton() {
-      const penRect = this.refs.penMainButton.getBoundingClientRect();
-      const toolbarRect = this.refs.root.getBoundingClientRect();
-      const menuRect = this.refs.menu.getBoundingClientRect();
-      const penCenterX = penRect.left + penRect.width / 2;
-      const penCenterY = penRect.top + penRect.height / 2;
-      const toggleWidth = this.refs.toggle.offsetWidth || 38;
-      const toggleHeight = this.refs.toggle.offsetHeight || 38;
-      const collapsedLeft = penCenterX - toolbarRect.left - toggleWidth / 2;
-      const collapsedTop = penCenterY - toolbarRect.top - toggleHeight / 2;
-      this.refs.root.style.setProperty("--wae-collapsed-left", `${collapsedLeft}px`);
-      this.refs.root.style.setProperty("--wae-collapsed-top", `${collapsedTop}px`);
-      this.refs.menu.style.setProperty("--wae-toolbar-origin", `${penCenterX - menuRect.left}px ${penCenterY - menuRect.top}px`);
-      return { toolbarRect, penRect, penCenterX, penCenterY };
-    }
-
     syncCollapsedButtonToPenButton() {
       if (this.state.menuOpen || this.toolbarClosing) return;
-      const penRect = this.refs.penMainButton.getBoundingClientRect();
-      const toolbarRect = this.refs.root.getBoundingClientRect();
-      if (!penRect.width || !toolbarRect.width) return;
-      const penCenterX = penRect.left + penRect.width / 2;
-      const penCenterY = penRect.top + penRect.height / 2;
       const toggleWidth = this.refs.toggle.offsetWidth || 38;
       const toggleHeight = this.refs.toggle.offsetHeight || 38;
-      const collapsedLeft = penCenterX - toolbarRect.left - toggleWidth / 2;
-      const collapsedTop = penCenterY - toolbarRect.top - toggleHeight / 2;
-      this.refs.root.style.setProperty("--wae-collapsed-left", `${collapsedLeft}px`);
-      this.refs.root.style.setProperty("--wae-collapsed-top", `${collapsedTop}px`);
-      this.refs.root.style.setProperty("--wae-root-width", `${Math.max(1, collapsedLeft + toggleWidth)}px`);
-      this.refs.root.style.setProperty("--wae-root-height", `${Math.max(1, collapsedTop + toggleHeight)}px`);
+      this.refs.root.style.setProperty("--wae-collapsed-left", "0px");
+      this.refs.root.style.setProperty("--wae-collapsed-top", "0px");
+      this.refs.root.style.setProperty("--wae-root-width", `${Math.max(1, toggleWidth)}px`);
+      this.refs.root.style.setProperty("--wae-root-height", `${Math.max(1, toggleHeight)}px`);
     }
 
     selectPenType(penType) {
       this.handlers.onPenType(penType);
       this.handlers.onTool("pen");
+      this.closePopover({ type: "pen", anchorElement: this.refs.penButton, keepPositionDuringClose: true });
+      this.update();
+    }
+
+    selectPenTool(tool) {
+      if (tool !== "highlighter") return;
+      this.handlers.onTool("highlighter");
       this.closePopover({ type: "pen", anchorElement: this.refs.penButton, keepPositionDuringClose: true });
       this.update();
     }
@@ -826,9 +963,18 @@
     }
 
     renderPenPopover() {
-      this.refs.penPopover.innerHTML = WAE.CONFIG.penTypes.map((pen) => {
-        const active = pen.id === this.state.selectedPenType ? " wae-active" : "";
-        return `<button class="wae-list-item${active}" data-pen-type="${pen.id}" title="${pen.label}">${this.icon(pen.icon)}<span>${pen.label}</span></button>`;
+      const items = [
+        { id: "ballpoint", label: "볼펜", icon: "ballpoint", type: "pen" },
+        { id: "highlighter", label: "형광펜", icon: "highlighter", type: "highlighter" },
+        { id: "fountain", label: "만년필", icon: "fountain", type: "pen" },
+        { id: "brush", label: "붓펜", icon: "brush", type: "pen" }
+      ];
+      this.refs.penPopover.innerHTML = items.map((item) => {
+        const active = item.type === "highlighter"
+          ? this.state.mode === "draw" && this.state.tool === "highlighter"
+          : this.state.selectedPenType === item.id && this.state.tool !== "highlighter";
+        const data = item.type === "highlighter" ? 'data-pen-tool="highlighter"' : `data-pen-type="${item.id}"`;
+        return `<button class="wae-list-item${active ? " wae-active" : ""}" ${data} title="${item.label}">${this.icon(item.icon)}<span>${item.label}</span></button>`;
       }).join("");
     }
 
@@ -836,8 +982,9 @@
       const makeChip = (color) => `<button class="wae-color-chip${color === currentColor ? " wae-active" : ""}" data-color="${color}" title="${color}" aria-label="${color}" style="background:${color}"></button>`;
       const recent = this.state.recentColors.map(makeChip).join("");
       const custom = '<button class="wae-custom-color" data-custom-color="true" title="사용자 색상" aria-label="사용자 색상">+</button>';
-      this.refs.colorPopover.innerHTML = WAE.CONFIG.colors.map(makeChip).join("") + custom + recent;
-      this.refs.settingsColorRow.innerHTML = WAE.CONFIG.colors.map(makeChip).join("") + recent + custom;
+      // do not overwrite our custom color popover markup; update settings row only
+      if (this.refs.settingsColorRow) this.refs.settingsColorRow.innerHTML = WAE.CONFIG.colors.map(makeChip).join("") + recent + custom;
+      this.updateColorSelectionIndicators();
     }
 
     renderWidthPopover(currentWidth) {
@@ -860,6 +1007,96 @@
       this.refs.widthSlider.value = currentWidth;
       this.refs.widthValue.textContent = `${currentWidth}px`;
       this.bindWidthSlider();
+    }
+
+    renderTextPopover() {
+      const settings = WAE.normalizeTextSettings(this.state.textSettings);
+      const active = (key, value) => settings[key] === value ? " wae-active" : "";
+      this.refs.textPopover.innerHTML = [
+        '<div style="display:grid;gap:8px;min-width:218px;padding:8px">',
+        '  <div class="wae-label"><span>글자 크기</span><strong data-text-value-for="fontSize">' + settings.fontSize + 'px</strong></div>',
+        '  <div class="wae-compact-row">',
+        '    <button class="wae-tool-mini' + (settings.fontSize === 14 ? ' wae-active' : '') + '" data-text-setting="fontSize" data-value="14">작게</button>',
+        '    <button class="wae-tool-mini' + (settings.fontSize === 18 ? ' wae-active' : '') + '" data-text-setting="fontSize" data-value="18">보통</button>',
+        '    <button class="wae-tool-mini' + (settings.fontSize === 24 ? ' wae-active' : '') + '" data-text-setting="fontSize" data-value="24">크게</button>',
+        '  </div>',
+        '  <input class="wae-slider" data-text-setting="fontSize" type="range" min="10" max="72" step="1" value="' + settings.fontSize + '">',
+        '  <div class="wae-label"><span>글자 색상</span><button class="wae-tool-mini" data-text-color-target="textColor"><span style="width:16px;height:16px;border-radius:50%;background:' + settings.color + ';border:1px solid rgba(255,255,255,.35)"></span>선택</button></div>',
+        '  <div class="wae-label"><span>굵기</span></div>',
+        '  <div class="wae-compact-row"><button class="wae-tool-mini' + active("fontWeight", "normal") + '" data-text-setting="fontWeight" data-value="normal">보통</button><button class="wae-tool-mini' + active("fontWeight", "bold") + '" data-text-setting="fontWeight" data-value="bold">굵게</button></div>',
+        '</div>'
+      ].join("");
+      this.bindTextRangeSliders();
+      return;
+    }
+
+    applyTextSetting(element) {
+      if (!this.handlers.onTextSettings) return;
+      const key = element.dataset.textSetting;
+      if (!["fontSize", "fontWeight"].includes(key)) return;
+      let value = element.dataset.value;
+      if (element.type === "range") {
+        value = Number(element.value);
+      } else if (element.type === "checkbox") {
+        value = element.checked;
+      } else if (key === "fontSize") {
+        value = Number(value);
+      }
+      this.handlers.onTextSettings({ [key]: value });
+      if (element.type === "range") {
+        this.updateTextRangeLabel(key, value);
+      } else {
+        this.renderTextPopover();
+      }
+    }
+
+    bindNativeRangeSlider(slider, callbacks) {
+      if (!slider) return;
+      const stop = (event) => event.stopPropagation();
+      slider.addEventListener("pointerdown", (event) => {
+        event.stopPropagation();
+        this.previousUserSelect = document.documentElement.style.userSelect;
+        document.documentElement.style.userSelect = "none";
+        try { slider.setPointerCapture(event.pointerId); } catch (e) {}
+      });
+      const finish = (event) => {
+        event.stopPropagation();
+        document.documentElement.style.userSelect = this.previousUserSelect;
+        try {
+          if (slider.hasPointerCapture && slider.hasPointerCapture(event.pointerId)) {
+            slider.releasePointerCapture(event.pointerId);
+          }
+        } catch (e) {}
+      };
+      slider.addEventListener("pointerup", finish);
+      slider.addEventListener("pointercancel", finish);
+      slider.addEventListener("click", stop);
+      slider.addEventListener("keydown", stop);
+      slider.addEventListener("input", (event) => {
+        event.stopPropagation();
+        if (callbacks && callbacks.onInput) callbacks.onInput(event);
+      });
+      slider.addEventListener("change", (event) => {
+        event.stopPropagation();
+        if (callbacks && callbacks.onChange) callbacks.onChange(event);
+      });
+    }
+
+    bindTextRangeSliders() {
+      if (!this.refs.textPopover) return;
+      this.refs.textPopover.querySelectorAll('input[type="range"][data-text-setting]').forEach((slider) => {
+        this.bindNativeRangeSlider(slider, {
+          onInput: () => this.applyTextSetting(slider),
+          onChange: () => this.applyTextSetting(slider)
+        });
+      });
+    }
+
+    updateTextRangeLabel(key, value) {
+      if (!this.refs.textPopover) return;
+      const label = this.refs.textPopover.querySelector(`[data-text-value-for="${key}"]`);
+      if (!label) return;
+      label.textContent = `${Math.round(Number(value))}px`;
     }
 
     renderEraserPopover() {
@@ -891,9 +1128,7 @@
       if (!this.refs || !this.refs.collapse) return;
       const horizontal = this.refs.root.dataset.expandHorizontal || "right";
       const vertical = this.refs.root.dataset.expandVertical || "down";
-      const primary = this.refs.root.dataset.expandPrimary || horizontal;
-      const iconType = primary === "left" ? "panel-left" : primary === "up" ? "panel-up" : primary === "down" ? "panel-down" : "panel-right";
-      this.refs.collapse.innerHTML = this.icon(iconType);
+      this.refs.collapse.innerHTML = this.icon("collapse-door");
       this.refs.collapse.title = "도구막대 접기";
       this.refs.collapse.setAttribute("aria-label", "도구막대 접기");
       this.refs.root.classList.toggle("expand-left", horizontal === "left");
@@ -1016,18 +1251,21 @@
     update() {
       const penType = WAE.getPenType(this.state.selectedPenType);
       const penSettings = this.state.penSettings[this.state.selectedPenType];
+      const activePenIcon = this.state.tool === "highlighter" ? "highlighter" : penType.icon;
+      const activePenLabel = this.state.tool === "highlighter" ? "형광펜" : penType.label;
       this.refs.root.classList.toggle("wae-open", this.state.menuOpen && !this.toolbarClosing);
       this.refs.root.classList.toggle("wae-closing", this.toolbarClosing);
-      this.refs.penIcon.innerHTML = this.icon(penType.icon);
-      this.refs.toggle.innerHTML = this.icon(penType.icon);
-      this.refs.penButton.title = penType.label;
-      this.refs.penMainButton.title = `${penType.label} - 필기 시작`;
-      this.refs.penButton.classList.toggle("wae-active", this.state.mode === "draw" && this.state.tool !== "eraser");
+      this.refs.penIcon.innerHTML = this.icon(activePenIcon);
+      this.refs.toggle.innerHTML = this.icon(activePenIcon);
+      this.refs.penButton.title = activePenLabel;
+      this.refs.penMainButton.title = `${activePenLabel} - 필기 시작`;
+      this.refs.penButton.classList.toggle("wae-active", this.state.mode === "draw" && this.state.tool !== "eraser" && this.state.tool !== "text");
       this.refs.settingsIcon.innerHTML = this.icon(penType.icon);
       this.refs.settingsTitle.textContent = penType.label;
       this.refs.colorDot.style.background = penSettings.color;
       this.refs.widthPreview.firstElementChild.style.height = `${Math.max(1, Math.min(18, penSettings.width))}px`;
       this.refs.widthButton.classList.toggle("wae-active", this.activePopover === "width");
+      this.refs.textSplit.classList.toggle("wae-active", this.state.mode === "draw" && this.state.tool === "text");
       this.refs.eraser.classList.toggle("wae-active", this.state.mode === "draw" && this.state.tool === "eraser");
       this.refs.navigation.classList.toggle("wae-active", this.state.mode === "navigate");
       this.refs.undo.disabled = this.state.undoStack.length === 0;
@@ -1044,6 +1282,9 @@
         this.renderWidthPopover(penSettings.width);
       } else {
         this.updateWidthControls(penSettings.width);
+      }
+      if (!this.isPopoverClosing("text") && this.activePopover !== "text") {
+        this.renderTextPopover();
       }
       this.updateSettingsValues(penSettings);
       this.updatePreview(penSettings);
@@ -1065,7 +1306,10 @@
       this.shadow.querySelector(".wae-roundness-text").textContent = settings.roundness > 0.65 ? "둥글게" : settings.roundness > 0.3 ? "중간" : "각짐";
       this.refs.roundnessChoices.forEach((button) => button.classList.toggle("wae-active", Math.abs(Number(button.dataset.roundness) - settings.roundness) < 0.1));
       this.refs.widths.forEach((button) => button.classList.toggle("wae-active", Number(button.dataset.width) === Number(settings.width)));
-      this.refs.colorInput.value = WAE.normalizeColor(settings.color) || WAE.CONFIG.defaultColor;
+      try {
+        if (this.refs.hexInput) this.refs.hexInput.value = WAE.normalizeColor(settings.color) || WAE.CONFIG.defaultColor;
+        if (this.refs.previewBox) this.refs.previewBox.style.background = WAE.normalizeColor(settings.color) || WAE.CONFIG.defaultColor;
+      } catch (e) {}
     }
 
     updatePreview(settings) {
@@ -1170,9 +1414,16 @@
       const type = popover.dataset.popover;
       if (this.isPopoverClosing(type)) return;
       const anchorRect = anchor.getBoundingClientRect();
+      const previousWidth = popover.style.width;
+      const previousHeight = popover.style.height;
+      const previousVisibility = popover.style.visibility;
+      popover.style.width = "";
+      popover.style.height = "";
+      popover.style.visibility = "hidden";
+      const rect = popover.getBoundingClientRect();
       const size = {
-        width: Math.max(1, popover.offsetWidth),
-        height: Math.max(1, popover.offsetHeight)
+        width: Math.max(1, rect.width || popover.offsetWidth),
+        height: Math.max(1, rect.height || popover.offsetHeight)
       };
       const position = this.getBestPopoverPosition(anchorRect, size, {
         width: window.innerWidth,
@@ -1182,8 +1433,9 @@
       popover.style.top = `${position.y}px`;
       popover.style.right = "auto";
       popover.style.bottom = "auto";
-      popover.style.width = "";
-      popover.style.height = "";
+      popover.style.width = previousWidth;
+      popover.style.height = previousHeight;
+      popover.style.visibility = previousVisibility;
       popover.dataset.placement = position.placement;
       popover.style.setProperty("--wae-origin", position.origin);
       popover.style.setProperty("--wae-popover-shift-x", position.shiftX);
@@ -1194,8 +1446,10 @@
       this.positionPopover(this.refs.penPopover, this.refs.penButton);
       this.positionPopover(this.refs.colorPopover, this.refs.colorButton);
       this.positionPopover(this.refs.widthPopover, this.refs.widthButton);
+      this.positionPopover(this.refs.textPopover, this.refs.textDropdownButton);
+      this.positionPopover(this.refs.capturePopover, this.refs.captureDropdownButton);
       this.positionPopover(this.refs.eraserPopover, this.refs.eraserDropdownButton);
-      this.positionPopover(this.refs.settingsPanel, this.refs.settings);
+      this.positionPopover(this.refs.settingsPanel, this.refs.penDropdownButton);
     }
 
     defaultPosition() {
@@ -1204,14 +1458,7 @@
     }
 
     getToolbarSize() {
-      if (!this.state.menuOpen && !this.toolbarClosing && this.refs && this.refs.toggle) {
-        const toggleRect = this.refs.toggle.getBoundingClientRect();
-        return {
-          width: Math.max(WAE.CONFIG.buttonSize, toggleRect.width || WAE.CONFIG.buttonSize),
-          height: Math.max(WAE.CONFIG.buttonSize, toggleRect.height || WAE.CONFIG.buttonSize)
-        };
-      }
-      const rect = this.host.getBoundingClientRect();
+      const rect = this.getVisibleToolbarRect();
       return {
         width: Math.max(WAE.CONFIG.buttonSize, rect.width || WAE.CONFIG.buttonSize),
         height: Math.max(WAE.CONFIG.buttonSize, rect.height || WAE.CONFIG.buttonSize)
@@ -1219,12 +1466,32 @@
     }
 
     toRatioPosition(x, y) {
-      return { xRatio: x / Math.max(1, window.innerWidth), yRatio: y / Math.max(1, window.innerHeight) };
+      const margin = 8;
+      const metrics = this.getVisibleToolbarMetrics();
+      const toolbarWidth = metrics.rect.width || WAE.CONFIG.buttonSize;
+      const toolbarHeight = metrics.rect.height || WAE.CONFIG.buttonSize;
+      const visibleX = Number(x) + metrics.offsetX;
+      const visibleY = Number(y) + metrics.offsetY;
+      const availableWidth = Math.max(0, window.innerWidth - toolbarWidth - margin * 2);
+      const availableHeight = Math.max(0, window.innerHeight - toolbarHeight - margin * 2);
+      return {
+        xRatio: availableWidth > 0 ? WAE.clamp((visibleX - margin) / availableWidth, 0, 1) : 0,
+        yRatio: availableHeight > 0 ? WAE.clamp((visibleY - margin) / availableHeight, 0, 1) : 0
+      };
     }
 
     toPixelPosition(position) {
       if (position && Number.isFinite(Number(position.xRatio)) && Number.isFinite(Number(position.yRatio))) {
-        return { x: Number(position.xRatio) * window.innerWidth, y: Number(position.yRatio) * window.innerHeight };
+        const margin = 8;
+        const metrics = this.getVisibleToolbarMetrics();
+        const toolbarWidth = metrics.rect.width || WAE.CONFIG.buttonSize;
+        const toolbarHeight = metrics.rect.height || WAE.CONFIG.buttonSize;
+        const availableWidth = Math.max(0, window.innerWidth - toolbarWidth - margin * 2);
+        const availableHeight = Math.max(0, window.innerHeight - toolbarHeight - margin * 2);
+        return {
+          x: margin + Number(position.xRatio) * availableWidth - metrics.offsetX,
+          y: margin + Number(position.yRatio) * availableHeight - metrics.offsetY
+        };
       }
       if (position && Number.isFinite(Number(position.x)) && Number.isFinite(Number(position.y))) {
         return { x: Number(position.x), y: Number(position.y) };
@@ -1252,7 +1519,7 @@
       this.state.toolbarPosition = this.toRatioPosition(clamped.x, clamped.y);
       this.host.style.left = `${clamped.x}px`;
       this.host.style.top = `${clamped.y}px`;
-      if (this.state.menuOpen && !this.toolbarClosing) {
+      if (this.state.menuOpen && !this.toolbarClosing && !this.dragStart) {
         window.requestAnimationFrame(() => this.positionToolbarForCollapsedAnchor());
       }
       this.repositionOpenPopovers();
@@ -1260,41 +1527,43 @@
 
     clampHostToViewport(x, y) {
       const margin = 8;
-      const initial = {
-        x: WAE.clamp(Number(x) || 0, margin, Math.max(margin, window.innerWidth - margin)),
-        y: WAE.clamp(Number(y) || 0, margin, Math.max(margin, window.innerHeight - margin))
-      };
-      this.host.style.left = `${initial.x}px`;
-      this.host.style.top = `${initial.y}px`;
+      const metrics = this.getVisibleToolbarMetrics();
+      const toolbarWidth = metrics.rect.width || WAE.CONFIG.buttonSize;
+      const toolbarHeight = metrics.rect.height || WAE.CONFIG.buttonSize;
+      const minX = margin - metrics.offsetX;
+      const minY = margin - metrics.offsetY;
+      const maxX = Math.max(minX, window.innerWidth - toolbarWidth - margin - metrics.offsetX);
+      const maxY = Math.max(minY, window.innerHeight - toolbarHeight - margin - metrics.offsetY);
+      const clampedX = WAE.clamp(Number(x) || 0, minX, maxX);
+      const clampedY = WAE.clamp(Number(y) || 0, minY, maxY);
+      this.host.style.left = `${clampedX}px`;
+      this.host.style.top = `${clampedY}px`;
+      return { x: clampedX, y: clampedY };
+    }
 
-      const rect = this.getViewportClampRect();
-      let nextX = initial.x;
-      let nextY = initial.y;
+    getVisibleToolbarRect() {
+      return this.getVisibleToolbarMetrics().rect;
+    }
 
-      if (rect.right > window.innerWidth - margin) {
-        nextX -= rect.right - (window.innerWidth - margin);
+    getVisibleToolbarMetrics() {
+      if (!this.refs) {
+        return { rect: { width: WAE.CONFIG.buttonSize, height: WAE.CONFIG.buttonSize }, offsetX: 0, offsetY: 0 };
       }
-      if (rect.left < margin) {
-        nextX += margin - rect.left;
+      const element = this.state.menuOpen || this.toolbarClosing ? this.refs.menu : this.refs.toggle;
+      const rect = element && element.getBoundingClientRect ? element.getBoundingClientRect() : null;
+      const hostRect = this.host && this.host.getBoundingClientRect ? this.host.getBoundingClientRect() : { left: 0, top: 0 };
+      if (rect && rect.width && rect.height) {
+        return { rect, offsetX: rect.left - hostRect.left, offsetY: rect.top - hostRect.top };
       }
-      if (rect.bottom > window.innerHeight - margin) {
-        nextY -= rect.bottom - (window.innerHeight - margin);
+      const rootRect = this.refs.root && this.refs.root.getBoundingClientRect ? this.refs.root.getBoundingClientRect() : null;
+      if (rootRect && rootRect.width && rootRect.height) {
+        return { rect: rootRect, offsetX: rootRect.left - hostRect.left, offsetY: rootRect.top - hostRect.top };
       }
-      if (rect.top < margin) {
-        nextY += margin - rect.top;
-      }
-
-      return {
-        x: WAE.clamp(nextX, margin - Math.max(0, rect.width - window.innerWidth + margin * 2), Math.max(margin, window.innerWidth - margin)),
-        y: WAE.clamp(nextY, margin - Math.max(0, rect.height - window.innerHeight + margin * 2), Math.max(margin, window.innerHeight - margin))
-      };
+      return { rect: { width: WAE.CONFIG.buttonSize, height: WAE.CONFIG.buttonSize }, offsetX: 0, offsetY: 0 };
     }
 
     getViewportClampRect() {
-      if (!this.state.menuOpen && !this.toolbarClosing && this.refs && this.refs.toggle) {
-        return this.refs.toggle.getBoundingClientRect();
-      }
-      return this.host.getBoundingClientRect();
+      return this.getVisibleToolbarRect();
     }
 
     keepInViewport() {
@@ -1304,6 +1573,233 @@
         window.requestAnimationFrame(() => this.positionToolbarForCollapsedAnchor());
       }
     }
+
+    // --- Color picker helpers ---
+    _clamp(v, a, b) { return Math.min(Math.max(v, a), b); }
+
+    getCurrentPenColor() {
+      return this.getCurrentPickerColor();
+    }
+
+    getCurrentPickerColor() {
+      if (this.colorPickerTarget === "textColor" || this.colorTarget === "textColor") {
+        return WAE.normalizeColor(this.state.textSettings && this.state.textSettings.color) || WAE.CONFIG.defaultTextSettings.color;
+      }
+      const settings = this.state && this.state.penSettings && this.state.penSettings[this.state.selectedPenType];
+      return WAE.normalizeColor(settings && settings.color) || WAE.CONFIG.defaultColor;
+    }
+
+    applyColorToCurrentPen(color) {
+      this.applyColorToCurrentTarget(color);
+    }
+
+    applyColorToCurrentTarget(color) {
+      const normalized = WAE.normalizeColor(color);
+      if (!normalized) return;
+      this.previewColor = normalized;
+      if (this.colorPickerTarget === "textColor" || this.colorTarget === "textColor") {
+        this.handlers.onTextSettings && this.handlers.onTextSettings({ color: normalized });
+        if (this.refs.previewBox) this.refs.previewBox.style.background = normalized;
+        this.updateColorSelectionIndicators();
+        return;
+      }
+      const penType = this.state.selectedPenType;
+      this.state.color = normalized;
+      this.state.penSettings = WAE.normalizePenSettings(Object.assign({}, this.state.penSettings, {
+        [penType]: Object.assign({}, this.state.penSettings[penType], { color: normalized })
+      }));
+      if (this.refs.colorDot) this.refs.colorDot.style.background = normalized;
+      if (this.refs.previewBox) this.refs.previewBox.style.background = normalized;
+      this.updatePreview(this.state.penSettings[penType]);
+      this.handlers.onPenSettings(penType, { color: normalized });
+      this.handlers.onColor(normalized);
+      this.updateColorSelectionIndicators();
+    }
+
+    addCurrentColorToMyColors() {
+      const normalized = WAE.normalizeColor(this.previewColor || (this.refs.hexInput && this.refs.hexInput.value) || this.getCurrentPickerColor());
+      if (!normalized) return;
+      const next = WAE.normalizeCustomColors([normalized].concat(this.state.customColors || []));
+      this.state.customColors = next;
+      if (this.handlers.onCustomColors) this.handlers.onCustomColors(next);
+      this.renderMyColors();
+    }
+
+    removeMyColor(color) {
+      const normalized = WAE.normalizeColor(color);
+      if (!normalized) return;
+      const next = WAE.normalizeCustomColors((this.state.customColors || []).filter((item) => WAE.normalizeColor(item) !== normalized));
+      this.state.customColors = next;
+      if (this.handlers.onCustomColors) this.handlers.onCustomColors(next);
+      this.renderMyColors();
+    }
+
+    renderMyColors() {
+      if (!this.refs.customColorsList) return;
+      const colors = WAE.normalizeCustomColors(this.state.customColors || []);
+      const currentColor = this.getCurrentPickerColor();
+      this.refs.customColorsList.innerHTML = colors.length
+        ? colors.map((color) => `<button class="wae-my-color${color === currentColor ? " wae-active" : ""}" data-my-color="${color}" title="${color}" aria-label="${color}" style="background:${color}"><span class="wae-my-color-delete" data-delete-my-color="${color}" title="삭제" aria-label="삭제">×</span></button>`).join("")
+        : '<span style="color:#94a3b8;font-size:11px;line-height:24px">저장된 색상이 없습니다</span>';
+    }
+
+    updateColorSelectionIndicators() {
+      const currentColor = this.getCurrentPickerColor();
+      if (this.refs.defaultColors) {
+        this.refs.defaultColors.forEach((button) => {
+          button.classList.toggle("wae-active", WAE.normalizeColor(button.dataset.color) === currentColor);
+        });
+      }
+      if (this.refs.customColorsList) {
+        this.refs.customColorsList.querySelectorAll("[data-my-color]").forEach((button) => {
+          button.classList.toggle("wae-active", WAE.normalizeColor(button.dataset.myColor) === currentColor);
+        });
+      }
+      if (this.refs.settingsColorRow) {
+        this.refs.settingsColorRow.querySelectorAll("[data-color]").forEach((button) => {
+          button.classList.toggle("wae-active", WAE.normalizeColor(button.dataset.color) === currentColor);
+        });
+      }
+    }
+
+    _rgbToHex(r,g,b){
+      const toHex = (n)=>('0'+Math.round(n).toString(16)).slice(-2);
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+    }
+
+    _hexToRgb(hex){
+      if(!hex) return null;
+      const m = hex.replace(/[^0-9a-fA-F]/g,'');
+      if(m.length===3) {
+        return {r:parseInt(m[0]+m[0],16), g:parseInt(m[1]+m[1],16), b:parseInt(m[2]+m[2],16)};
+      }
+      if(m.length===6) {
+        return {r:parseInt(m.slice(0,2),16), g:parseInt(m.slice(2,4),16), b:parseInt(m.slice(4,6),16)};
+      }
+      return null;
+    }
+
+    _rgbToHsv(r,g,b){
+      r/=255;g/=255;b/=255;
+      const max=Math.max(r,g,b), min=Math.min(r,g,b);
+      const d=max-min; let h=0; if(d===0) h=0; else if(max===r) h=((g-b)/d)%6; else if(max===g) h=(b-r)/d+2; else h=(r-g)/d+4; h=Math.round((h*60+360)%360);
+      const v=max; const s = max===0?0:d/max;
+      return {h,s,v};
+    }
+
+    _hsvToRgb(h,s,v){
+      const c = v*s; const hh = h/60; const x = c*(1-Math.abs(hh%2-1)); let r1=0,g1=0,b1=0;
+      if(hh>=0 && hh<1){r1=c;g1=x;b1=0;}else if(hh<2){r1=x;g1=c;b1=0;}else if(hh<3){r1=0;g1=c;b1=x;}else if(hh<4){r1=0;g1=x;b1=c;}else if(hh<5){r1=x;g1=0;b1=c;}else{r1=c;g1=0;b1=x;}
+      const m = v-c; return {r:Math.round((r1+m)*255), g:Math.round((g1+m)*255), b:Math.round((b1+m)*255)};
+    }
+
+    _initColorPopover(){
+      // draw hue and sv canvases
+      try{
+        const hueCanvas = this.refs.hueCanvas; const svCanvas = this.refs.colorSVCanvas;
+        this._drawHue();
+        this._drawSV();
+        // wire pointer handlers
+        const stop = (e)=>{ e.stopPropagation(); };
+        const hueDown = (e)=>{ e.stopPropagation(); e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); this._hueDragging = true; this._onHuePointer(e); };
+        const svDown = (e)=>{ e.stopPropagation(); e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); this._svDragging = true; this._onSVPointer(e); };
+        const finishHue = (e)=>{ e.stopPropagation(); this._hueDragging = false; try{ e.currentTarget.releasePointerCapture(e.pointerId); }catch(_){} };
+        const finishSV = (e)=>{ e.stopPropagation(); this._svDragging = false; try{ e.currentTarget.releasePointerCapture(e.pointerId); }catch(_){} };
+        hueCanvas.addEventListener('pointerdown', hueDown, true);
+        hueCanvas.addEventListener('pointermove', (e)=>{ if(this._hueDragging) { e.stopPropagation(); e.preventDefault(); this._onHuePointer(e); } }, true);
+        hueCanvas.addEventListener('pointerup', finishHue, true);
+        hueCanvas.addEventListener('pointercancel', finishHue, true);
+        svCanvas.addEventListener('pointerdown', svDown, true);
+        svCanvas.addEventListener('pointermove', (e)=>{ if(this._svDragging) { e.stopPropagation(); e.preventDefault(); this._onSVPointer(e); } }, true);
+        svCanvas.addEventListener('pointerup', finishSV, true);
+        svCanvas.addEventListener('pointercancel', finishSV, true);
+
+        if (this.refs.colorPopover) {
+          this.refs.colorPopover.addEventListener("pointerdown", (event) => event.stopPropagation());
+          this.refs.colorPopover.addEventListener("click", (event) => event.stopPropagation());
+        }
+        // inputs
+        const stopKey = (event) => {
+          event.stopPropagation();
+          if (event.key === "Escape") {
+            event.preventDefault();
+            this.closePopover('color');
+          }
+        };
+        [this.refs.rInput, this.refs.gInput, this.refs.bInput, this.refs.hexInput, this.refs.addCustomColorButton, this.refs.customColorsList].forEach((element) => {
+          if (!element) return;
+          element.addEventListener('pointerdown', stop, true);
+          element.addEventListener('click', stop);
+          element.addEventListener('keydown', stopKey, true);
+        });
+        const applyRgbInputs = (e)=>{
+          e.stopPropagation();
+          const r=this._clamp(Number(this.refs.rInput.value)||0,0,255);
+          const g=this._clamp(Number(this.refs.gInput.value)||0,0,255);
+          const b=this._clamp(Number(this.refs.bInput.value)||0,0,255);
+          this._applyRGB(r,g,b);
+        };
+        if(this.refs.rInput) this.refs.rInput.addEventListener('input', applyRgbInputs);
+        if(this.refs.gInput) this.refs.gInput.addEventListener('input', applyRgbInputs);
+        if(this.refs.bInput) this.refs.bInput.addEventListener('input', applyRgbInputs);
+        if(this.refs.hexInput) this.refs.hexInput.addEventListener('input',(e)=>{ e.stopPropagation(); const rgb=this._hexToRgb(e.target.value.trim()); if(rgb) this._applyRGB(rgb.r,rgb.g,rgb.b); });
+        // default colors
+        if(this.refs.defaultColors) this.refs.defaultColors.forEach((btn)=>{ btn.addEventListener('click',(e)=>{ e.stopPropagation(); const c=btn.dataset.color; const rgb=this._hexToRgb(c); if(rgb) { this._applyRGB(rgb.r,rgb.g,rgb.b); this.closePopover('color'); } }); });
+        if(this.refs.customColorsList) this.refs.customColorsList.addEventListener('click',(e)=>{
+          e.stopPropagation();
+          const deleteButton = e.target.closest && e.target.closest('[data-delete-my-color]');
+          if (deleteButton) {
+            this.removeMyColor(deleteButton.dataset.deleteMyColor);
+            return;
+          }
+          const chip = e.target.closest && e.target.closest('[data-my-color]');
+          if (chip) {
+            const rgb = this._hexToRgb(chip.dataset.myColor);
+            if (rgb) this._applyRGB(rgb.r, rgb.g, rgb.b);
+          }
+        });
+        if(this.refs.addCustomColorButton) this.refs.addCustomColorButton.addEventListener('click',(e)=>{ e.stopPropagation(); this.addCurrentColorToMyColors(); });
+      }catch(e){console.error(e);}
+    }
+
+    _drawHue(){
+      const canvas=this.refs.hueCanvas; if(!canvas) return; const ctx=canvas.getContext('2d'); const dpr = window.devicePixelRatio || 1; const w = Math.max(1, Math.floor(canvas.clientWidth * dpr)); const h = Math.max(1, Math.floor(canvas.clientHeight * dpr)); canvas.width = w; canvas.height = h; ctx.setTransform(dpr,0,0,dpr,0,0);
+      const grad = ctx.createLinearGradient(0,0,canvas.clientWidth,0);
+      grad.addColorStop(0/6,'#ff0000'); grad.addColorStop(1/6,'#ffff00'); grad.addColorStop(2/6,'#00ff00'); grad.addColorStop(3/6,'#00ffff'); grad.addColorStop(4/6,'#0000ff'); grad.addColorStop(5/6,'#ff00ff'); grad.addColorStop(1,'#ff0000');
+      ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight); ctx.fillStyle = grad; ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);
+    }
+
+    _drawSV(hue){
+      const canvas=this.refs.colorSVCanvas; if(!canvas) return; const ctx=canvas.getContext('2d'); const dpr = window.devicePixelRatio || 1; const w = Math.max(1, Math.floor(canvas.clientWidth * dpr)); const h = Math.max(1, Math.floor(canvas.clientHeight * dpr)); canvas.width = w; canvas.height = h; ctx.setTransform(dpr,0,0,dpr,0,0);
+      hue = typeof hue === 'number' ? hue : (this._svHue!==undefined?this._svHue:0);
+      // fill base with hue
+      ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);
+      ctx.fillStyle = `hsl(${Math.round(hue)},100%,50%)`;
+      ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);
+      // white gradient left->right
+      const g1 = ctx.createLinearGradient(0,0,canvas.clientWidth,0); g1.addColorStop(0,'#fff'); g1.addColorStop(1,'rgba(255,255,255,0)'); ctx.fillStyle = g1; ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);
+      // black gradient top->bottom (transparent to black)
+      const g2 = ctx.createLinearGradient(0,0,0,canvas.clientHeight); g2.addColorStop(0,'rgba(0,0,0,0)'); g2.addColorStop(1,'#000'); ctx.fillStyle = g2; ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);
+    }
+
+    _onHuePointer(e){ if(!this.refs.hueCanvas) return; const rect=this.refs.hueCanvas.getBoundingClientRect(); const x=this._clamp(e.clientX - rect.left,0,rect.width); const hue=(x/Math.max(1,rect.width))*360; this._svHue=hue; this._drawSV(hue); this._moveHueCursor(x); const rgb=this._hsvToRgb(hue,this._svS ?? 1,this._svV ?? 1); this._setTempColor(rgb); }
+
+    _onSVPointer(e){ if(!this.refs.colorSVCanvas) return; const rect=this.refs.colorSVCanvas.getBoundingClientRect(); const x=this._clamp(e.clientX-rect.left,0,rect.width); const y=this._clamp(e.clientY-rect.top,0,rect.height); const s=x/Math.max(1,rect.width); const v=1-(y/Math.max(1,rect.height)); this._svS=s; this._svV=v; this._moveSVCursor(x,y); const rgb=this._hsvToRgb(this._svHue||0,s,v); this._setTempColor(rgb); }
+
+    _moveSVCursor(x,y){ if(!this.refs.colorSVCursor) return; this.refs.colorSVCursor.style.left = x + 'px'; this.refs.colorSVCursor.style.top = y + 'px'; }
+    _moveHueCursor(x){ if(!this.refs.hueCursor) return; this.refs.hueCursor.style.left = x + 'px'; }
+
+    _setColorControls(rgb){ if(!rgb) return; const hex=this._rgbToHex(rgb.r,rgb.g,rgb.b); if(this.refs.previewBox) this.refs.previewBox.style.background = hex; if(this.refs.rInput) this.refs.rInput.value = rgb.r; if(this.refs.gInput) this.refs.gInput.value = rgb.g; if(this.refs.bInput) this.refs.bInput.value = rgb.b; if(this.refs.hexInput) this.refs.hexInput.value = hex; }
+
+    _setTempColor(rgb){ if(!rgb) return; const hex=this._rgbToHex(rgb.r,rgb.g,rgb.b); this._setColorControls(rgb); // live reflect
+      this.applyColorToCurrentPen(hex);
+    }
+
+    _applyRGB(r,g,b,options){ this._svHue = this._rgbToHsv(r,g,b).h; this._svS = this._rgbToHsv(r,g,b).s; this._svV = this._rgbToHsv(r,g,b).v; this._drawSV(this._svHue); // position cursors
+      // compute cursor positions
+      try{ const svRect=this.refs.colorSVCanvas.getBoundingClientRect(); const x = this._clamp(this._svS*svRect.width,0,svRect.width); const y = this._clamp((1-this._svV)*svRect.height,0,svRect.height); this._moveSVCursor(x,y); const hueRect=this.refs.hueCanvas.getBoundingClientRect(); const hx = this._clamp((this._svHue/360)*hueRect.width,0,hueRect.width); this._moveHueCursor(hx); }catch(e){}
+      if (options && options.apply === false) this._setColorControls({r,g,b});
+      else this._setTempColor({r,g,b}); }
 
     startDrag(event) {
       if (event.button !== 0) return;

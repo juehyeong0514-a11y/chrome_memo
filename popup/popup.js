@@ -9,6 +9,7 @@
     "src/storage-manager.js",
     "src/canvas-manager.js",
     "src/drawing-manager.js",
+    "src/text-manager.js",
     "src/toolbar.js",
     "src/content.js"
   ];

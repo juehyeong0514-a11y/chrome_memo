@@ -9,5 +9,5 @@
 
 .wae-canvas.wae-drawing-mode {
   pointer-events: auto !important;
-  cursor: crosshair !important;
+  cursor: none !important;
 }

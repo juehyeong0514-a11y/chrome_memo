@@ -246,6 +246,12 @@
         action.items.forEach((item) => this.removeStrokeById(item.stroke.id));
       } else if (action.type === "clear") {
         this.state.strokes = [];
+        if (this.textManager) {
+          this.state.textItems = [];
+          this.textManager.render();
+        }
+      } else if (action.type && action.type.indexOf("text-") === 0 && this.textManager) {
+        this.textManager.applyAction(action);
       }
     }
 
@@ -256,16 +262,28 @@
         this.restoreErased(action.items);
       } else if (action.type === "clear") {
         this.state.strokes = action.previous.map((stroke) => WAE.cloneStroke(stroke));
+        if (this.textManager) {
+          this.state.textItems = (action.previousText || []).map((item) => this.textManager.cloneItem(item));
+          this.textManager.render();
+        }
+      } else if (action.type && action.type.indexOf("text-") === 0 && this.textManager) {
+        this.textManager.applyInverse(action);
       }
     }
 
     clearAll(skipConfirm) {
-      if (!this.state.strokes.length || (!skipConfirm && !window.confirm("현재 페이지의 모든 필기를 지울까요?"))) {
+      const hasText = this.state.textItems && this.state.textItems.length;
+      if ((!this.state.strokes.length && !hasText) || (!skipConfirm && !window.confirm("현재 페이지의 모든 필기와 텍스트를 지울까요?"))) {
         return;
       }
       const previous = this.state.strokes.map((stroke) => WAE.cloneStroke(stroke));
+      const previousText = hasText && this.textManager ? this.state.textItems.map((item) => this.textManager.cloneItem(item)) : [];
       this.state.strokes = [];
-      this.pushAction({ type: "clear", previous });
+      if (this.textManager) {
+        this.state.textItems = [];
+        this.textManager.render();
+      }
+      this.pushAction({ type: "clear", previous, previousText });
       this.canvasManager.render();
     }
 

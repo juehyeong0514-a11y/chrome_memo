@@ -16,6 +16,11 @@
     defaultEraserSettings: {
       size: 24
     },
+    defaultTextSettings: {
+      fontSize: 18,
+      color: "#111111",
+      fontWeight: "normal"
+    },
     eraserSizes: [
       { id: "small", label: "작게", value: 12 },
       { id: "normal", label: "보통", value: 24 },
@@ -89,11 +94,15 @@
   }
 
   function getPenSettingsKeys() {
-    return ["penSettings", "selectedPenType", "recentColors"];
+    return ["penSettings", "selectedPenType", "recentColors", "customColors"];
   }
 
   function getEraserSettingsKeys() {
     return ["eraserSettings"];
+  }
+
+  function getTextSettingsKeys() {
+    return ["textSettings"];
   }
 
   function getPenType(type) {
@@ -128,6 +137,15 @@
     return /^#[0-9a-f]{6}$/.test(value) ? value : "";
   }
 
+  function normalizeTextSettings(settings) {
+    const source = settings || {};
+    return {
+      fontSize: Number.isFinite(Number(source.fontSize)) ? Math.round(clamp(Number(source.fontSize), 10, 72)) : CONFIG.defaultTextSettings.fontSize,
+      color: normalizeColor(source.color) || CONFIG.defaultTextSettings.color,
+      fontWeight: source.fontWeight === "bold" ? "bold" : "normal"
+    };
+  }
+
   function normalizeRecentColors(colors) {
     const unique = [];
     (Array.isArray(colors) ? colors : []).forEach((color) => {
@@ -137,6 +155,17 @@
       }
     });
     return unique.slice(0, CONFIG.maxRecentColors);
+  }
+
+  function normalizeCustomColors(colors) {
+    const unique = [];
+    (Array.isArray(colors) ? colors : []).forEach((color) => {
+      const normalized = normalizeColor(color);
+      if (normalized && !unique.includes(normalized)) {
+        unique.push(normalized);
+      }
+    });
+    return unique.slice(0, 10);
   }
 
   function clamp(value, min, max) {
@@ -187,11 +216,14 @@
   WAE.getPositionKey = getPositionKey;
   WAE.getPenSettingsKeys = getPenSettingsKeys;
   WAE.getEraserSettingsKeys = getEraserSettingsKeys;
+  WAE.getTextSettingsKeys = getTextSettingsKeys;
   WAE.getPenType = getPenType;
   WAE.normalizePenSettings = normalizePenSettings;
   WAE.normalizeEraserSettings = normalizeEraserSettings;
   WAE.normalizeColor = normalizeColor;
+  WAE.normalizeTextSettings = normalizeTextSettings;
   WAE.normalizeRecentColors = normalizeRecentColors;
+  WAE.normalizeCustomColors = normalizeCustomColors;
   WAE.clamp = clamp;
   WAE.clampToolbarPosition = clampToolbarPosition;
   WAE.isEditableTarget = isEditableTarget;
