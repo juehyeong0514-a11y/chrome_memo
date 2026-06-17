@@ -4,9 +4,9 @@
   const WAE = window.WebAnnotationExtension;
 
   class Toolbar {
-    constructor({ state, onTool, onMode, onUndo, onRedo, onClear, onHide, onColor, onWidth, onPenType, onPenSettings, onEraserSize, onTextSettings, onCustomColors, onPosition, onCaptureMain, onCaptureOption }) {
+    constructor({ state, onTool, onMode, onUndo, onRedo, onClear, onHide, onColor, onWidth, onPenType, onPenSettings, onEraserSize, onTextSettings, onCustomColors, onPosition, onScale, onCaptureMain, onCaptureOption }) {
       this.state = state;
-      this.handlers = { onTool, onMode, onUndo, onRedo, onClear, onHide, onColor, onWidth, onPenType, onPenSettings, onEraserSize, onTextSettings, onCustomColors, onPosition, onCaptureMain, onCaptureOption };
+      this.handlers = { onTool, onMode, onUndo, onRedo, onClear, onHide, onColor, onWidth, onPenType, onPenSettings, onEraserSize, onTextSettings, onCustomColors, onPosition, onScale, onCaptureMain, onCaptureOption };
       this.host = document.createElement("div");
       this.host.className = "wae-toolbar-host";
       this.host.style.cssText = "position:fixed;z-index:2147483647;left:0;top:0;width:max-content;height:max-content;pointer-events:auto";
@@ -18,6 +18,7 @@
       this.widthSliderDragging = false;
       this.eraserSliderDragging = false;
       this.toolbarScale = 1;
+      this.resizeStart = null;
       this.dragged = false;
       this.dragStart = null;
       this.previousUserSelect = "";
@@ -35,6 +36,7 @@
         toggle: this.shadow.querySelector(".wae-toggle"),
         menu: this.shadow.querySelector(".wae-menu"),
         dragHandle: this.shadow.querySelector(".wae-drag-handle"),
+        resizeHandle: this.shadow.querySelector(".wae-resize-handle"),
         undo: this.shadow.querySelector(".wae-undo"),
         redo: this.shadow.querySelector(".wae-redo"),
         penButton: this.shadow.querySelector(".wae-pen-split"),
@@ -159,7 +161,11 @@
         ".wae-root.wae-open .wae-toggle,.wae-root.wae-closing .wae-toggle{opacity:0;pointer-events:none;transform:scale(.85)}",
         ".wae-drag-handle{height:calc(10px * var(--toolbar-scale));border:0;background:transparent;cursor:grab;touch-action:none;position:relative}",
         ".wae-drag-handle::before{content:'';position:absolute;left:50%;top:calc(3px * var(--toolbar-scale));width:calc(40px * var(--toolbar-scale));height:calc(4px * var(--toolbar-scale));border-radius:999px;background:#64748b;transform:translateX(-50%)}",
+        ".wae-resize-handle{position:absolute;right:0;bottom:0;width:calc(18px * var(--toolbar-scale));height:calc(18px * var(--toolbar-scale));border:0;background:transparent;cursor:nwse-resize;touch-action:none;z-index:3}",
+        ".wae-resize-handle::before{content:'';position:absolute;right:calc(4px * var(--toolbar-scale));bottom:calc(4px * var(--toolbar-scale));width:calc(9px * var(--toolbar-scale));height:calc(9px * var(--toolbar-scale));border-right:2px solid rgba(203,213,225,.75);border-bottom:2px solid rgba(203,213,225,.75);opacity:.8}",
         ".wae-bar{display:flex;align-items:center;gap:var(--toolbar-gap);white-space:nowrap}",
+        ".wae-root.wae-size-small .wae-bar{gap:calc(4px * var(--toolbar-scale))}",
+        ".wae-root.wae-size-large .wae-bar{gap:calc(6px * var(--toolbar-scale))}",
         ".wae-root.expand-left .wae-bar{flex-direction:row-reverse}",
         ".wae-root.expand-right .wae-bar{flex-direction:row}",
         ".wae-root.expand-up .wae-menu{grid-template-areas:'bar' 'handle'}",
@@ -276,6 +282,7 @@
         '      <button class="wae-navigation" title="탐색 모드" aria-label="탐색 모드">' + this.icon("eye") + "</button>",
         '      <button class="wae-collapse" title="도구막대 접기" aria-label="도구막대 접기">' + this.icon("collapse-door") + '</button>',
         "    </div>",
+        '    <div class="wae-resize-handle" title="도구막대 크기 조절" aria-hidden="true"></div>',
           "  </div>",
         '  <div class="wae-popover wae-pen-popover" data-popover="pen"></div>',
         '  <div class="wae-popover wae-color-popover" data-popover="color">',
@@ -338,6 +345,9 @@
     bind() {
       this.refs.toggle.addEventListener("pointerdown", (event) => this.startDrag(event));
       this.refs.dragHandle.addEventListener("pointerdown", (event) => this.startDrag(event));
+      if (this.refs.resizeHandle) {
+        this.refs.resizeHandle.addEventListener("pointerdown", (event) => this.startResize(event));
+      }
       this.refs.toggle.addEventListener("click", (event) => {
         if (this.dragged) {
           event.preventDefault();
@@ -1138,10 +1148,10 @@
     }
 
     setScale(scale) {
-      const value = Number(scale);
-      this.toolbarScale = value === 0.85 || value === 1.2 ? value : 1;
+      this.toolbarScale = this.normalizeToolbarScale(scale);
       if (this.refs && this.refs.root) {
         this.refs.root.style.setProperty("--toolbar-scale", String(this.toolbarScale));
+        this.updateScaleTierClass();
         window.requestAnimationFrame(() => {
           if (this.state.menuOpen && !this.toolbarClosing) {
             this.positionToolbarForCollapsedAnchor();
@@ -1151,6 +1161,19 @@
           this.keepInViewport();
         });
       }
+    }
+
+    normalizeToolbarScale(scale) {
+      const value = Number(scale);
+      if (!Number.isFinite(value)) return 1;
+      return Math.round(WAE.clamp(value, 0.78, 1.35) * 100) / 100;
+    }
+
+    updateScaleTierClass() {
+      if (!this.refs || !this.refs.root) return;
+      this.refs.root.classList.toggle("wae-size-small", this.toolbarScale < 0.94);
+      this.refs.root.classList.toggle("wae-size-normal", this.toolbarScale >= 0.94 && this.toolbarScale < 1.12);
+      this.refs.root.classList.toggle("wae-size-large", this.toolbarScale >= 1.12);
     }
 
     bindEraserSizeSlider() {
@@ -1800,6 +1823,56 @@
       try{ const svRect=this.refs.colorSVCanvas.getBoundingClientRect(); const x = this._clamp(this._svS*svRect.width,0,svRect.width); const y = this._clamp((1-this._svV)*svRect.height,0,svRect.height); this._moveSVCursor(x,y); const hueRect=this.refs.hueCanvas.getBoundingClientRect(); const hx = this._clamp((this._svHue/360)*hueRect.width,0,hueRect.width); this._moveHueCursor(hx); }catch(e){}
       if (options && options.apply === false) this._setColorControls({r,g,b});
       else this._setTempColor({r,g,b}); }
+
+    startResize(event) {
+      if (event.button !== 0 || !this.state.menuOpen) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const menuRect = this.refs.menu.getBoundingClientRect();
+      const baseSize = { width: Math.max(1, menuRect.width), height: Math.max(1, menuRect.height) };
+      this.resizeStart = {
+        pointerX: event.clientX,
+        pointerY: event.clientY,
+        scale: this.toolbarScale,
+        width: baseSize.width,
+        height: baseSize.height
+      };
+      this.previousUserSelect = document.documentElement.style.userSelect;
+      document.documentElement.style.userSelect = "none";
+
+      const move = (moveEvent) => {
+        moveEvent.preventDefault();
+        moveEvent.stopPropagation();
+        const dx = moveEvent.clientX - this.resizeStart.pointerX;
+        const dy = moveEvent.clientY - this.resizeStart.pointerY;
+        const widthScale = (this.resizeStart.width + dx) / Math.max(1, this.resizeStart.width);
+        const heightScale = (this.resizeStart.height + dy) / Math.max(1, this.resizeStart.height);
+        const nextScale = this.normalizeToolbarScale(this.resizeStart.scale * Math.max(widthScale, heightScale));
+        this.setScale(nextScale);
+      };
+      const end = (endEvent) => {
+        document.documentElement.style.userSelect = this.previousUserSelect;
+        window.removeEventListener("pointermove", move, true);
+        window.removeEventListener("pointerup", end, true);
+        window.removeEventListener("pointercancel", end, true);
+        if (event.currentTarget.hasPointerCapture && event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        this.keepInViewport();
+        if (this.handlers.onScale) this.handlers.onScale(this.toolbarScale);
+        if (this.handlers.onPosition) this.handlers.onPosition();
+        if (endEvent) {
+          endEvent.preventDefault();
+          endEvent.stopPropagation();
+        }
+        this.resizeStart = null;
+      };
+
+      event.currentTarget.setPointerCapture(event.pointerId);
+      window.addEventListener("pointermove", move, true);
+      window.addEventListener("pointerup", end, true);
+      window.addEventListener("pointercancel", end, true);
+    }
 
     startDrag(event) {
       if (event.button !== 0) return;

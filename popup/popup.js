@@ -50,9 +50,8 @@
 
   function normalizeToolbarScale(scale) {
     const value = Number(scale);
-    if (Math.abs(value - 0.85) < 0.02) return 0.85;
-    if (Math.abs(value - 1.2) < 0.03) return 1.2;
-    return 1;
+    if (!Number.isFinite(value)) return 1;
+    return Math.round(Math.min(Math.max(value, 0.78), 1.35) * 100) / 100;
   }
 
   function saveSettings(settings) {
@@ -208,7 +207,7 @@
     enabledText.textContent = settings.globalEnabled ? "ON" : "OFF";
     const scale = normalizeToolbarScale(settings.uiSettings && settings.uiSettings.toolbarScale);
     toolbarScaleGroup.querySelectorAll("[data-scale]").forEach((button) => {
-      const active = normalizeToolbarScale(button.dataset.scale) === scale;
+      const active = Math.abs(normalizeToolbarScale(button.dataset.scale) - scale) < 0.02;
       button.classList.toggle("active", active);
       button.setAttribute("aria-checked", active ? "true" : "false");
     });

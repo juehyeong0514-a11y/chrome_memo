@@ -145,6 +145,7 @@
       },
       onPosition: () => saveDebounced()
       ,
+      onScale: (scale) => saveToolbarScale(scale),
       onCaptureMain: () => performCapture("full"),
       onCaptureOption: (opt) => performCapture(opt)
     });
@@ -172,9 +173,8 @@
 
     function normalizeToolbarScale(scale) {
       const value = Number(scale);
-      if (Math.abs(value - 0.85) < 0.02) return 0.85;
-      if (Math.abs(value - 1.2) < 0.03) return 1.2;
-      return 1;
+      if (!Number.isFinite(value)) return 1;
+      return Math.round(WAE.clamp(value, 0.78, 1.35) * 100) / 100;
     }
 
     function saveDebounced() {
@@ -208,6 +208,18 @@
 
     function saveCustomColors() {
       storage.set({ customColors: state.customColors });
+    }
+
+    async function saveToolbarScale(scale) {
+      const normalized = normalizeToolbarScale(scale);
+      state.uiSettings.toolbarScale = normalized;
+      const result = await storage.get([settingsKey]);
+      const settings = Object.assign(defaultSettings(), result[settingsKey] || {});
+      settings.siteSettings = settings.siteSettings || {};
+      settings.uiSettings = Object.assign({}, defaultSettings().uiSettings, settings.uiSettings || {}, {
+        toolbarScale: normalized
+      });
+      await storage.set({ [settingsKey]: settings });
     }
 
     function ensureMounted(savedPosition) {
@@ -592,7 +604,22 @@
         boxShadow: "0 0 0 1px rgba(255,255,255,.12)",
         background: "#fff"
       });
+      const logCaptureMetrics = (phase) => {
+        const rect = image.getBoundingClientRect();
+        console.info("[WAE capture quality]", {
+          phase,
+          previewNaturalResolution: `${image.naturalWidth}x${image.naturalHeight}`,
+          previewDisplaySize: `${Math.round(rect.width)}x${Math.round(rect.height)}`,
+          savedImageResolution: `${image.naturalWidth}x${image.naturalHeight}`,
+          imageMime: dataUrl.slice(5, dataUrl.indexOf(";")) || "unknown",
+          devicePixelRatio: window.devicePixelRatio || 1
+        });
+      };
+      image.addEventListener("load", () => logCaptureMetrics("preview-loaded"), { once: true });
       imageWrap.appendChild(image);
+      if (image.complete && image.naturalWidth) {
+        window.requestAnimationFrame(() => logCaptureMetrics("preview-loaded"));
+      }
 
       const footer = document.createElement("div");
       Object.assign(footer.style, {
@@ -689,6 +716,10 @@
         setBusy(true);
         status.textContent = "PNG 파일을 저장하는 중...";
         try {
+          if (!image.complete) {
+            await new Promise((resolve) => image.addEventListener("load", resolve, { once: true }));
+          }
+          logCaptureMetrics("before-save");
           const downloadResponse = await sendRuntimeMessage({
             type: "DOWNLOAD_DATA_URL",
             dataUrl,

@@ -13,6 +13,7 @@
       this.canvas.className = "wae-canvas";
       this.eraserPreview = document.createElement("div");
       this.eraserPreview.className = "wae-tool-cursor-preview";
+      this.eraserPreview.innerHTML = '<span class="wae-cursor-actual"></span><span class="wae-cursor-guide"></span><span class="wae-cursor-center"></span>';
       this.ctx = this.canvas.getContext("2d");
       this.resizeFrame = 0;
       this.dprQuery = null;
@@ -116,28 +117,82 @@
       }
       const tool = state.tool || "eraser";
       const size = Math.max(1, Math.min(140, Number(state.size) || 24));
+      const guideSize = Math.max(size, 12);
       const color = state.color || (tool === "eraser" ? "#f87171" : "#111111");
+      const actual = this.eraserPreview.querySelector(".wae-cursor-actual");
+      const guide = this.eraserPreview.querySelector(".wae-cursor-guide");
+      const center = this.eraserPreview.querySelector(".wae-cursor-center");
+      if (!actual || !guide || !center) return;
+
+      Object.assign(this.eraserPreview.style, {
+        width: `${guideSize}px`,
+        height: `${guideSize}px`,
+        opacity: "1",
+        mixBlendMode: "normal",
+        border: "0",
+        background: "transparent",
+        transform: `translate(${event.clientX - guideSize / 2}px,${event.clientY - guideSize / 2}px)`
+      });
+      Object.assign(guide.style, {
+        position: "absolute",
+        left: "50%",
+        top: "50%",
+        width: `${guideSize}px`,
+        height: `${guideSize}px`,
+        transform: "translate(-50%,-50%)",
+        borderRadius: "50%",
+        boxSizing: "border-box",
+        border: "1px solid #fff",
+        boxShadow: "0 0 0 1px #000,0 1px 4px rgba(0,0,0,.35)",
+        background: "transparent",
+        display: "block"
+      });
+      Object.assign(actual.style, {
+        position: "absolute",
+        left: "50%",
+        top: "50%",
+        width: `${size}px`,
+        height: `${size}px`,
+        transform: "translate(-50%,-50%)",
+        borderRadius: "50%",
+        boxSizing: "border-box",
+        border: "1px solid #000",
+        boxShadow: "0 0 0 1px #fff",
+        background: "rgba(255,255,255,.08)",
+        display: "block"
+      });
+      Object.assign(center.style, {
+        position: "absolute",
+        left: "50%",
+        top: "50%",
+        width: "7px",
+        height: "7px",
+        transform: "translate(-50%,-50%)",
+        borderRadius: "50%",
+        boxSizing: "border-box",
+        border: "1px solid #fff",
+        boxShadow: "0 0 0 1px #000",
+        background: "rgba(0,0,0,.75)",
+        display: "block"
+      });
+
       if (tool === "eraser") {
-        this.eraserPreview.style.border = "2px solid rgba(248,113,113,.82)";
-        this.eraserPreview.style.background = "rgba(248,113,113,.08)";
-        this.eraserPreview.style.mixBlendMode = "normal";
+        actual.style.border = "1px solid #000";
+        actual.style.boxShadow = "0 0 0 1px #fff,0 0 0 3px rgba(248,113,113,.55)";
+        actual.style.background = "rgba(248,113,113,.08)";
       } else if (tool === "highlighter") {
-        this.eraserPreview.style.border = `1px solid ${color}`;
-        this.eraserPreview.style.background = color;
-        this.eraserPreview.style.opacity = String(Math.max(0.18, Math.min(0.45, WAE.CONFIG.highlighterOpacity)));
-        this.eraserPreview.style.mixBlendMode = "multiply";
+        actual.style.width = `${Math.max(12, size * 1.6)}px`;
+        actual.style.height = `${Math.max(8, size * 0.62)}px`;
+        actual.style.borderRadius = `${Math.max(4, size * 0.25)}px`;
+        actual.style.border = "1px solid #000";
+        actual.style.boxShadow = `0 0 0 1px #fff, inset 0 0 0 999px ${color}`;
+        actual.style.opacity = String(Math.max(0.22, Math.min(0.5, WAE.CONFIG.highlighterOpacity + 0.08)));
       } else {
-        this.eraserPreview.style.border = `1.5px solid ${color}`;
-        this.eraserPreview.style.background = "rgba(255,255,255,.08)";
-        this.eraserPreview.style.mixBlendMode = "normal";
-      }
-      if (tool !== "highlighter") {
-        this.eraserPreview.style.opacity = "1";
+        actual.style.border = `1px solid ${color}`;
+        actual.style.boxShadow = "0 0 0 1px #fff,0 0 0 2px #000";
+        actual.style.background = "rgba(255,255,255,.08)";
       }
       this.eraserPreview.style.display = "block";
-      this.eraserPreview.style.width = `${size}px`;
-      this.eraserPreview.style.height = `${size}px`;
-      this.eraserPreview.style.transform = `translate(${event.clientX - size / 2}px,${event.clientY - size / 2}px)`;
     }
 
     hideEraserPreview() {
