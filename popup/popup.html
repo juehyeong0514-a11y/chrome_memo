@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Web Annotation Floating Pen</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="popup">
+      <header class="header">
+        <div>
+          <h1>Web Annotation</h1>
+          <p>Floating Pen</p>
+        </div>
+        <label class="switch" title="ON/OFF">
+          <input id="enabledToggle" type="checkbox">
+          <span></span>
+        </label>
+      </header>
+
+      <section class="status-box">
+        <div class="row">
+          <span>&#54788;&#51116; &#49345;&#53468;</span>
+          <strong id="enabledText">&#54869;&#51064; &#51473;</strong>
+        </div>
+        <div class="row">
+          <span>&#54788;&#51116; &#54168;&#51060;&#51648;</span>
+          <strong id="pageStatus">&#54869;&#51064; &#51473;</strong>
+        </div>
+        <p id="unavailableMessage" class="notice" hidden>&#51060; &#54168;&#51060;&#51648;&#50640;&#49436;&#45716; &#54869;&#51109; &#54532;&#47196;&#44536;&#47016;&#51012; &#49324;&#50857;&#54624; &#49688; &#50630;&#49845;&#45768;&#45796;.</p>
+      </section>
+
+      <section class="scale-box" aria-label="도구막대 크기">
+        <div class="section-title">도구막대 크기</div>
+        <div class="segments" id="toolbarScaleGroup" role="radiogroup" aria-label="도구막대 크기">
+          <button type="button" data-scale="0.85" role="radio">작게</button>
+          <button type="button" data-scale="1" role="radio">보통</button>
+          <button type="button" data-scale="1.2" role="radio">크게</button>
+        </div>
+      </section>
+
+      <button id="resetPosition" class="reset" type="button">&#46020;&#44396; &#50948;&#52824; &#52488;&#44592;&#54868;</button>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

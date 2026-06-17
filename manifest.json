@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Web Annotation Floating Pen",
+  "version": "1.0.0",
+  "description": "Draw, highlight, erase, and save page annotations on regular web pages.",
+  "permissions": ["storage", "activeTab", "tabs", "scripting"],
+  "host_permissions": ["http://*/*", "https://*/*", "file:///*"],
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*", "file:///*"],
+      "js": [
+        "src/utils.js",
+        "src/storage-manager.js",
+        "src/canvas-manager.js",
+        "src/drawing-manager.js",
+        "src/toolbar.js",
+        "src/content.js"
+      ],
+      "css": ["src/content.css"],
+      "run_at": "document_idle",
+      "all_frames": false,
+      "match_about_blank": false
+    }
+  ]
+}
