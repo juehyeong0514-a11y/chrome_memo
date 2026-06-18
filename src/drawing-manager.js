@@ -95,6 +95,7 @@
         this.state.isErasing = true;
         this.activeErase = { ids: new Set(), items: [] };
         this.eraseAt(this.canvasManager.documentPoint(event, this.getPointMeta(event)));
+        this.canvasManager.render();
         return;
       }
 
@@ -125,12 +126,13 @@
       event.preventDefault();
       if (this.state.isErasing) {
         this.eachPointerSample(event, (sample) => this.eraseAt(this.canvasManager.documentPoint(sample, this.getPointMeta(sample))));
+        this.canvasManager.requestRender();
         return;
       }
       this.eachPointerSample(event, (sample) => {
         this.appendPoint(this.state.activeStroke, this.canvasManager.documentPoint(sample, this.getPointMeta(sample)));
       });
-      this.canvasManager.render();
+      this.canvasManager.requestRender();
     }
 
     onPointerUp(event) {
@@ -145,9 +147,11 @@
       if (this.state.activeStroke) {
         this.appendPoint(this.state.activeStroke, this.canvasManager.documentPoint(event, this.getPointMeta(event)));
         this.pushAction({ type: "add", stroke: WAE.cloneStroke(this.state.activeStroke) });
+        this.canvasManager.render();
       }
       if (this.state.isErasing && this.activeErase && this.activeErase.items.length) {
         this.pushAction({ type: "erase", items: this.activeErase.items.map((item) => ({ index: item.index, stroke: WAE.cloneStroke(item.stroke) })) });
+        this.canvasManager.render();
       }
 
       this.state.activeStroke = null;
@@ -284,7 +288,6 @@
         this.textManager.render();
       }
       this.pushAction({ type: "clear", previous, previousText });
-      this.canvasManager.render();
     }
 
     removeStrokeById(id) {
@@ -319,7 +322,6 @@
           this.state.strokes.splice(index, 1);
         }
       }
-      this.canvasManager.render();
     }
 
     strokeHitsPoint(stroke, point, radius) {

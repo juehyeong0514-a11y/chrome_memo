@@ -16,6 +16,7 @@
       this.eraserPreview.innerHTML = '<span class="wae-cursor-actual"></span><span class="wae-cursor-guide"></span><span class="wae-cursor-center"></span>';
       this.ctx = this.canvas.getContext("2d");
       this.resizeFrame = 0;
+      this.renderFrame = 0;
       this.dprQuery = null;
       this.resizeObserver = null;
       this.mutationObserver = null;
@@ -181,12 +182,10 @@
         actual.style.boxShadow = "0 0 0 1px #fff,0 0 0 3px rgba(248,113,113,.55)";
         actual.style.background = "rgba(248,113,113,.08)";
       } else if (tool === "highlighter") {
-        actual.style.width = `${Math.max(12, size * 1.6)}px`;
-        actual.style.height = `${Math.max(8, size * 0.62)}px`;
-        actual.style.borderRadius = `${Math.max(4, size * 0.25)}px`;
-        actual.style.border = "1px solid #000";
-        actual.style.boxShadow = `0 0 0 1px #fff, inset 0 0 0 999px ${color}`;
-        actual.style.opacity = String(Math.max(0.22, Math.min(0.5, WAE.CONFIG.highlighterOpacity + 0.08)));
+        actual.style.border = `1px solid ${color}`;
+        actual.style.boxShadow = "0 0 0 1px #fff,0 0 0 2px #000";
+        actual.style.background = "rgba(255,255,255,.08)";
+        actual.style.opacity = "1";
       } else {
         actual.style.border = `1px solid ${color}`;
         actual.style.boxShadow = "0 0 0 1px #fff,0 0 0 2px #000";
@@ -223,6 +222,16 @@
       this.resizeFrame = window.requestAnimationFrame(() => {
         this.resizeFrame = 0;
         this.resize();
+      });
+    }
+
+    requestRender() {
+      if (this.renderFrame) {
+        return;
+      }
+      this.renderFrame = window.requestAnimationFrame(() => {
+        this.renderFrame = 0;
+        this.render();
       });
     }
 
@@ -304,6 +313,10 @@
       if (this.resizeFrame) {
         window.cancelAnimationFrame(this.resizeFrame);
         this.resizeFrame = 0;
+      }
+      if (this.renderFrame) {
+        window.cancelAnimationFrame(this.renderFrame);
+        this.renderFrame = 0;
       }
       window.removeEventListener("resize", this.resizeHandler);
       if (this.dprQuery && this.dprHandler) {

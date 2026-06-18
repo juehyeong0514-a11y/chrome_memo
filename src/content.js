@@ -63,11 +63,15 @@
       canvasManager,
       onChange: () => {
         toolbar.update();
+        saveAnnotationsDebounced();
       }
     });
     const textManager = new WAE.TextManager({
       state,
-      onChange: () => toolbar.update()
+      onChange: () => {
+        toolbar.update();
+        saveAnnotationsDebounced();
+      }
     });
     drawingManager.textManager = textManager;
     const toolbar = new WAE.Toolbar({
@@ -158,7 +162,27 @@
       items[positionKey] = {
         toolbarPosition: state.toolbarPosition
       };
+      items[state.memoryPageKey || WAE.getPageKey()] = annotationSnapshot();
       return items;
+    }
+
+    function annotationSnapshot() {
+      const strokes = (state.strokes || []).map((stroke) => WAE.cloneStroke(stroke));
+      const textItems = (state.textItems || []).map((item) => textManager.cloneItem(item));
+      return {
+        version: 1,
+        updatedAt: Date.now(),
+        strokes,
+        textItems
+      };
+    }
+
+    function normalizeSavedAnnotations(saved) {
+      const source = saved && typeof saved === "object" ? saved : {};
+      return {
+        strokes: Array.isArray(source.strokes) ? source.strokes : [],
+        textItems: Array.isArray(source.textItems) ? source.textItems : []
+      };
     }
 
     function defaultSettings() {
@@ -181,8 +205,20 @@
       storage.debounceSave(dataForSave);
     }
 
+    function saveAnnotationsDebounced() {
+      if (!state.enabled) return;
+      storage.debounceSave(dataForSave);
+    }
+
     function saveNow() {
       return storage.flushSave(dataForSave);
+    }
+
+    function saveNowWithCurrentEdit() {
+      if (textManager.editing) {
+        textManager.commitEdit();
+      }
+      return saveNow();
     }
 
     function penPreferencesForSave() {
@@ -236,6 +272,22 @@
         drawingBound = true;
       }
       return uiMounted;
+    }
+
+    function loadAnnotations(saved) {
+      const annotations = normalizeSavedAnnotations(saved);
+      drawingManager.loadStrokes(annotations.strokes);
+      textManager.loadItems(annotations.textItems);
+      state.undoStack = [];
+      state.redoStack = [];
+      state.activeStroke = null;
+      state.isErasing = false;
+      drawingManager.activeErase = null;
+      if (uiMounted) {
+        canvasManager.render();
+        textManager.render();
+        toolbar.update();
+      }
     }
 
     function setMode(mode) {
@@ -497,8 +549,10 @@
 
     async function cropSelectionToDataUrl(dataUrl, selection) {
       const img = await loadImage(dataUrl);
-      const scaleX = img.width / window.innerWidth;
-      const scaleY = img.height / window.innerHeight;
+      const sourceWidth = img.naturalWidth || img.width;
+      const sourceHeight = img.naturalHeight || img.height;
+      const scaleX = sourceWidth / window.innerWidth;
+      const scaleY = sourceHeight / window.innerHeight;
       const cropX = Math.round(selection.left * scaleX);
       const cropY = Math.round(selection.top * scaleY);
       const cropW = Math.max(1, Math.round(selection.width * scaleX));
@@ -551,7 +605,7 @@
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "24px",
+        padding: "12px",
         boxSizing: "border-box",
         pointerEvents: "auto"
       });
@@ -559,8 +613,8 @@
       const modal = document.createElement("div");
       modal.className = "wae-capture-preview-modal";
       Object.assign(modal.style, {
-        width: "min(960px, 96vw)",
-        maxHeight: "92vh",
+        width: "calc(100vw - 24px)",
+        maxHeight: "calc(100vh - 24px)",
         background: "#0f172a",
         color: "#f8fafc",
         border: "1px solid rgba(148,163,184,.35)",
@@ -585,7 +639,7 @@
       Object.assign(imageWrap.style, {
         minHeight: "180px",
         overflow: "auto",
-        padding: "14px",
+        padding: "8px",
         background: "#020617",
         display: "flex",
         alignItems: "center",
@@ -596,14 +650,20 @@
       image.src = dataUrl;
       image.alt = "캡처 미리보기";
       Object.assign(image.style, {
-        maxWidth: "100%",
-        maxHeight: "calc(92vh - 132px)",
+        maxWidth: "calc(100vw - 42px)",
+        maxHeight: "calc(100vh - 118px)",
         width: "auto",
         height: "auto",
         objectFit: "contain",
+        imageRendering: "auto",
         boxShadow: "0 0 0 1px rgba(255,255,255,.12)",
         background: "#fff"
       });
+      const fitPreviewToNaturalSize = () => {
+        if (!image.naturalWidth || !image.naturalHeight) return;
+        image.style.maxWidth = `min(${image.naturalWidth}px, calc(100vw - 42px))`;
+        image.style.maxHeight = `min(${image.naturalHeight}px, calc(100vh - 118px))`;
+      };
       const logCaptureMetrics = (phase) => {
         const rect = image.getBoundingClientRect();
         console.info("[WAE capture quality]", {
@@ -615,10 +675,16 @@
           devicePixelRatio: window.devicePixelRatio || 1
         });
       };
-      image.addEventListener("load", () => logCaptureMetrics("preview-loaded"), { once: true });
+      image.addEventListener("load", () => {
+        fitPreviewToNaturalSize();
+        logCaptureMetrics("preview-loaded");
+      }, { once: true });
       imageWrap.appendChild(image);
       if (image.complete && image.naturalWidth) {
-        window.requestAnimationFrame(() => logCaptureMetrics("preview-loaded"));
+        window.requestAnimationFrame(() => {
+          fitPreviewToNaturalSize();
+          logCaptureMetrics("preview-loaded");
+        });
       }
 
       const footer = document.createElement("div");
@@ -991,7 +1057,8 @@
     }
 
     async function restore() {
-      const result = await storage.get([positionKey, settingsKey].concat(penSettingsKeys).concat(eraserSettingsKeys).concat(textSettingsKeys));
+      const pageKey = state.memoryPageKey || WAE.getPageKey();
+      const result = await storage.get([positionKey, settingsKey, pageKey].concat(penSettingsKeys).concat(eraserSettingsKeys).concat(textSettingsKeys));
       const settings = Object.assign(defaultSettings(), result[settingsKey] || {});
       settings.uiSettings = Object.assign({}, defaultSettings().uiSettings, settings.uiSettings || {});
       const savedPosition = result[positionKey] && result[positionKey].toolbarPosition
@@ -1005,6 +1072,7 @@
       state.selectedPenType = WAE.getPenType(result.selectedPenType || state.selectedPenType).id;
       state.recentColors = WAE.normalizeRecentColors(result.recentColors);
       state.customColors = WAE.normalizeCustomColors(result.customColors);
+      loadAnnotations(result[pageKey]);
       if (settings.globalEnabled) {
         ensureMounted(savedPosition || toolbar.defaultPosition());
         applyEnabled(true);
@@ -1019,8 +1087,14 @@
     async function setExtensionEnabled(enabled, options = {}) {
       await saveSettings(enabled);
       if (!enabled && options.destroyUI) {
-        await saveNow();
-        destroyRuntime(options.clearAnnotations !== false);
+        if (options.clearAnnotations !== false) {
+          clearAnnotationState();
+          await saveNow();
+          destroyRuntime(false);
+        } else {
+          await saveNowWithCurrentEdit();
+          destroyRuntime(false);
+        }
         return;
       }
       applyEnabled(enabled);
@@ -1063,7 +1137,7 @@
       }
     }
 
-    function handleUrlChange() {
+    async function handleUrlChange() {
       const nextKey = WAE.getPageKey();
       if (nextKey === state.memoryPageKey) {
         return;
@@ -1073,12 +1147,9 @@
         clearAnnotationState();
         return;
       }
-      saveNow();
+      await saveNowWithCurrentEdit();
       state.memoryPageKey = nextKey;
-      drawingManager.loadStrokes([]);
-      state.textItems = [];
-      if (uiMounted) textManager.render();
-      restore();
+      await restore();
     }
 
     function patchHistory(methodName) {
@@ -1098,7 +1169,7 @@
     restore();
 
     window.addEventListener("keydown", handleKeydown, true);
-    window.addEventListener("pagehide", saveNow);
+    window.addEventListener("pagehide", saveNowWithCurrentEdit);
     window.addEventListener("popstate", handleUrlChange);
     window.addEventListener("hashchange", handleUrlChange);
     window.addEventListener("resize", () => {

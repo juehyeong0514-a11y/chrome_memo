@@ -56,6 +56,7 @@
         ".wae-text-box.wae-text-selected,.wae-text-box.wae-text-editing{border-color:rgba(59,130,246,.85)}",
         ".wae-text-box.wae-text-editing{outline:2px solid rgba(56,189,248,.50);cursor:text;user-select:text}",
         ".wae-text-box.wae-text-editing .wae-text-content{cursor:text;user-select:text}",
+        ".wae-text-box.wae-text-empty.wae-text-editing,.wae-text-box.wae-text-empty.wae-text-editing .wae-text-content{cursor:move;user-select:none}",
         ".wae-text-control{display:none;position:absolute;box-sizing:border-box;z-index:2}",
         ".wae-text-box.wae-text-selected .wae-text-control,.wae-text-box.wae-text-editing .wae-text-control{display:block}",
         ".wae-text-delete{right:-8px;top:-8px;width:18px;height:18px;border:1px solid rgba(15,23,42,.25);border-radius:50%;background:#0f172a;color:#fff;font-size:13px;line-height:16px;text-align:center;padding:0;cursor:pointer}",
@@ -114,6 +115,23 @@
       this.selectedId = null;
       this.render();
       if (pushUndo && previous.length) this.pushAction({ type: "text-clear", previous });
+    }
+
+    loadItems(items) {
+      this.cancelEdit();
+      this.state.textItems = (Array.isArray(items) ? items : []).map((item) => {
+        try {
+          return this.cloneItem(item);
+        } catch (error) {
+          return null;
+        }
+      }).filter(Boolean);
+      this.nextId = this.state.textItems.reduce((max, item) => {
+        const numeric = Number(item.id);
+        return Number.isFinite(numeric) ? Math.max(max, numeric) : max;
+      }, 0) + 1;
+      this.selectedId = null;
+      this.render();
     }
 
     beginCapture() {
@@ -238,9 +256,16 @@
 
     startInteraction(event, id, type) {
       if (event.button !== 0) return;
+      let resumeEditAfterInteraction = null;
       if (this.editing) {
-        if (type === "move") return;
-        this.commitEdit();
+        if (String(this.editing.id) === String(id) && !this.currentEditingText().trim()) {
+          resumeEditAfterInteraction = { isNew: this.editing.isNew };
+          this.stopEditingWithoutCommit();
+        } else if (type === "move") {
+          return;
+        } else {
+          this.commitEdit();
+        }
       }
       event.preventDefault();
       event.stopPropagation();
@@ -257,6 +282,7 @@
         originalWidth: this.getItemWidth(item),
         originalHeight: this.getItemHeight(item),
         originalFontSize: WAE.normalizeTextSettings(item.settings).fontSize,
+        resumeEditAfter: resumeEditAfterInteraction,
         moved: false
       };
       this.previousUserSelect = document.documentElement.style.userSelect;
@@ -312,6 +338,9 @@
         } else {
           this.pushAction({ type: "text-edit", before: interaction.before, after: this.cloneItem(item) });
         }
+      }
+      if (item && interaction.resumeEditAfter && !String(item.text || "").trim()) {
+        window.setTimeout(() => this.startEdit(item.id, interaction.resumeEditAfter), 0);
       }
     }
 
@@ -376,6 +405,7 @@
         this.removeItem(item.id);
         this.selectedId = null;
         this.render();
+        this.onChange();
         return;
       }
       const before = edit.before;
@@ -386,6 +416,20 @@
       } else if (before.text !== item.text) {
         this.pushAction({ type: "text-edit", before, after: this.cloneItem(item) });
       }
+    }
+
+    currentEditingText() {
+      if (!this.editing) return "";
+      const box = this.layer.querySelector(`[data-text-id="${this.escapeSelectorValue(this.editing.id)}"]`);
+      const element = box && box.querySelector(".wae-text-content");
+      return element ? element.innerText.replace(/\n+$/g, "") : "";
+    }
+
+    stopEditingWithoutCommit() {
+      if (!this.editing) return;
+      if (this.editing.outside) document.removeEventListener("pointerdown", this.editing.outside, true);
+      this.editing = null;
+      this.render();
     }
 
     cancelEdit() {
@@ -513,6 +557,7 @@
       if (this.editing && this.editing.id === item.id) {
         box.classList.add("wae-text-editing");
       }
+      box.classList.toggle("wae-text-empty", !String(item.text || "").trim());
       this.layer.appendChild(box);
     }
 

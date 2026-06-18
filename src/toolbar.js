@@ -1845,9 +1845,9 @@
         moveEvent.stopPropagation();
         const dx = moveEvent.clientX - this.resizeStart.pointerX;
         const dy = moveEvent.clientY - this.resizeStart.pointerY;
-        const widthScale = (this.resizeStart.width + dx) / Math.max(1, this.resizeStart.width);
-        const heightScale = (this.resizeStart.height + dy) / Math.max(1, this.resizeStart.height);
-        const nextScale = this.normalizeToolbarScale(this.resizeStart.scale * Math.max(widthScale, heightScale));
+        const base = Math.max(1, (this.resizeStart.width + this.resizeStart.height) / 2);
+        const delta = (dx + dy) / 2;
+        const nextScale = this.normalizeToolbarScale(this.resizeStart.scale * ((base + delta) / base));
         this.setScale(nextScale);
       };
       const end = (endEvent) => {
