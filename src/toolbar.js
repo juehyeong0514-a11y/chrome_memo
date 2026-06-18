@@ -104,6 +104,79 @@
       window.requestAnimationFrame(() => this.syncCollapsedButtonToPenButton());
     }
 
+    language() {
+      return this.state && this.state.uiSettings && this.state.uiSettings.language === "en" ? "en" : "ko";
+    }
+
+    t(key) {
+      const ko = {
+        settings: "환경설정",
+        close: "닫기",
+        toolbarDirection: "도구막대 방향",
+        horizontal: "가로",
+        vertical: "세로",
+        toolbarSize: "도구막대 크기",
+        language: "언어",
+        Korean: "한국어",
+        English: "English",
+        small: "작게",
+        normal: "보통",
+        large: "크게",
+        pen: "펜",
+        highlighter: "형광펜",
+        select: "선택/이동",
+        drawStart: "필기 시작",
+        color: "색상 선택",
+        width: "펜 굵기",
+        text: "텍스트 입력",
+        capture: "전체 화면 캡처",
+        eraser: "지우개",
+        navigate: "탐색 모드",
+        collapse: "도구막대 접기",
+        openTools: "필기 도구 열기",
+        ballpoint: "볼펜",
+        fountain: "만년필",
+        brush: "붓펜"
+      };
+      const en = {
+        settings: "Settings",
+        close: "Close",
+        toolbarDirection: "Toolbar direction",
+        horizontal: "Horizontal",
+        vertical: "Vertical",
+        toolbarSize: "Toolbar size",
+        language: "Language",
+        Korean: "Korean",
+        English: "English",
+        small: "Small",
+        normal: "Normal",
+        large: "Large",
+        pen: "Pen",
+        highlighter: "Highlighter",
+        select: "Select/move",
+        drawStart: "Start drawing",
+        color: "Choose color",
+        width: "Pen width",
+        text: "Text",
+        capture: "Capture screen",
+        eraser: "Eraser",
+        navigate: "Navigate",
+        collapse: "Collapse toolbar",
+        openTools: "Open drawing tools",
+        ballpoint: "Ballpoint",
+        fountain: "Fountain pen",
+        brush: "Brush"
+      };
+      const dictionary = this.language() === "en" ? en : ko;
+      return dictionary[key] || ko[key] || key;
+    }
+
+    scaleLabel(scale) {
+      const value = this.normalizeToolbarScale(scale);
+      const label = value < 0.94 ? this.t("small") : (value < 1.12 ? this.t("normal") : this.t("large"));
+      return `${label} ${Math.round(value * 100)}%`;
+    }
+
     icon(type) {
       const common = 'viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
       if (type === "fountain") {
@@ -111,6 +184,9 @@
       }
       if (type === "brush") {
         return `<svg ${common}><path d="M16 3.8l4.2 4.2-7.8 7.8c-.9.9-2.1 1.3-3.3 1.1l-1.3-.2.2-1.3c.2-1.2.6-2.4 1.5-3.3L16 3.8z"/><path d="M5.8 17.2c-1.3.4-2.2 1-2.8 2.1 1.8.5 3.5.2 4.8-.7"/></svg>`;
+      }
+      if (type === "ballpoint") {
+        return `<svg ${common}><path d="M4.8 19.2l3.9-1 9.8-9.8a2.2 2.2 0 0 0-3.1-3.1l-9.8 9.8-1 3.9z"/><path d="M13.8 6.8l3.4 3.4"/><path d="M6.2 15.1l2.7 2.7"/><path d="M4.6 20.4l4.1-1.1"/></svg>`;
       }
       if (type === "eraser") {
         return `<svg ${common}><path d="M4 15.5l8.8-8.8a2.1 2.1 0 0 1 3 0l3.5 3.5a2.1 2.1 0 0 1 0 3L13 19.5H8L4 15.5z"/><path d="M9.5 10l5 5"/><path d="M13 19.5h7"/><path d="M3 21h5"/></svg>`;
@@ -158,6 +234,9 @@
         ".wae-root{--toolbar-scale:1;--button-size:calc(34px * var(--toolbar-scale));--toggle-size:calc(38px * var(--toolbar-scale));--icon-size:calc(21px * var(--toolbar-scale));--toolbar-gap:calc(5px * var(--toolbar-scale));--toolbar-padding:calc(7px * var(--toolbar-scale));--toolbar-radius:calc(14px * var(--toolbar-scale));position:relative;display:inline-block;width:var(--wae-root-width,1px);height:var(--wae-root-height,1px);font-family:Arial,Helvetica,sans-serif;color:#e5e7eb;user-select:none}",
         "button,input{font-family:inherit}",
         ".wae-root svg{width:var(--icon-size);height:var(--icon-size)}",
+        ".wae-root.wae-orientation-vertical{--icon-size:calc(24px * var(--toolbar-scale))}",
+        ".wae-root.wae-orientation-vertical{--button-size:calc(40px * var(--toolbar-scale))}",
+        ".wae-toggle svg{width:calc(23px * var(--toolbar-scale));height:calc(23px * var(--toolbar-scale))}",
         ".wae-toggle{position:absolute;left:var(--wae-collapsed-left,0px);top:var(--wae-collapsed-top,0px);width:var(--toggle-size);height:var(--toggle-size);border:0;border-radius:50%;background:rgba(17,24,39,.95);color:#fff;font-size:calc(17px * var(--toolbar-scale));font-weight:800;box-shadow:0 10px 24px rgba(0,0,0,.25);cursor:pointer;touch-action:none;z-index:2;transition:opacity 150ms ease,transform 150ms ease}",
         ".wae-menu{position:absolute;left:var(--wae-menu-left,0px);top:var(--wae-menu-top,0px);display:grid;grid-template-columns:1fr;gap:var(--toolbar-gap);padding:var(--toolbar-padding);border-radius:var(--toolbar-radius);background:rgba(17,24,39,.93);box-shadow:0 16px 38px rgba(0,0,0,.32);border:1px solid rgba(148,163,184,.22);max-width:calc(100vw - 16px);overflow:visible;opacity:0;visibility:hidden;pointer-events:none;transform:scale(.85);transform-origin:var(--wae-toolbar-origin,50% 50%);transition:opacity 160ms ease,transform 160ms ease,visibility 0s linear 160ms}",
         ".wae-root.wae-open .wae-menu{opacity:1;visibility:visible;pointer-events:auto;transform:scale(1);transition:opacity 160ms ease,transform 160ms ease}",
@@ -172,6 +251,9 @@
         ".wae-root.wae-size-large .wae-bar{gap:calc(6px * var(--toolbar-scale))}",
         ".wae-root.expand-left .wae-bar{flex-direction:row-reverse}",
         ".wae-root.expand-right .wae-bar{flex-direction:row}",
+        ".wae-root.wae-orientation-vertical .wae-bar{flex-direction:column}",
+        ".wae-root.wae-orientation-vertical .wae-menu{padding:calc(6px * var(--toolbar-scale));border-radius:calc(13px * var(--toolbar-scale))}",
+        ".wae-root.wae-orientation-vertical .wae-drag-handle{width:var(--button-size);height:calc(10px * var(--toolbar-scale));justify-self:center}",
         ".wae-root.expand-up .wae-menu{grid-template-areas:'bar' 'handle'}",
         ".wae-root.expand-up .wae-drag-handle{grid-area:handle}",
         ".wae-root.expand-up .wae-bar{grid-area:bar}",
@@ -180,18 +262,25 @@
         ".wae-icon-btn{font-size:calc(20px * var(--toolbar-scale));line-height:1}",
         ".wae-icon-btn:disabled{opacity:.34;cursor:default;filter:saturate(.5)}",
         ".wae-undo-redo{display:inline-flex;gap:calc(4px * var(--toolbar-scale))}",
+        ".wae-root.wae-orientation-vertical .wae-undo-redo{display:grid;grid-template-columns:1fr;width:var(--button-size);gap:calc(4px * var(--toolbar-scale))}",
+        ".wae-root.wae-orientation-vertical .wae-undo-redo .wae-icon-btn{width:var(--button-size);height:calc(28px * var(--toolbar-scale));border-radius:calc(7px * var(--toolbar-scale))}",
         ".wae-pen-split{min-width:calc(60px * var(--toolbar-scale));padding:0;overflow:hidden;background:rgba(255,255,255,.08)}",
         ".wae-text-split,.wae-capture-split,.wae-eraser-split{min-width:calc(56px * var(--toolbar-scale));padding:0;overflow:hidden;background:rgba(255,255,255,.08)}",
+        ".wae-root.wae-orientation-vertical .wae-pen-split,.wae-root.wae-orientation-vertical .wae-text-split,.wae-root.wae-orientation-vertical .wae-capture-split,.wae-root.wae-orientation-vertical .wae-eraser-split{min-width:0;width:var(--button-size);height:var(--button-size);border-radius:calc(9px * var(--toolbar-scale))}",
         ".wae-pen-main,.wae-pen-dropdown,.wae-text-main,.wae-text-dropdown,.wae-capture-main,.wae-capture-dropdown,.wae-eraser-main,.wae-eraser-dropdown{height:100%;border:0;background:transparent;color:inherit;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}",
         ".wae-pen-main{width:calc(39px * var(--toolbar-scale))}",
         ".wae-text-main,.wae-capture-main,.wae-eraser-main{width:calc(35px * var(--toolbar-scale))}",
         ".wae-pen-dropdown{width:calc(20px * var(--toolbar-scale));border-left:1px solid rgba(148,163,184,.24);font-size:calc(10px * var(--toolbar-scale));color:#bfdbfe}",
         ".wae-text-dropdown,.wae-capture-dropdown{width:calc(19px * var(--toolbar-scale));border-left:1px solid rgba(148,163,184,.24);font-size:calc(10px * var(--toolbar-scale));color:#bfdbfe}",
         ".wae-eraser-dropdown{width:calc(19px * var(--toolbar-scale));border-left:1px solid rgba(148,163,184,.24);font-size:calc(10px * var(--toolbar-scale));color:#fecaca}",
+        ".wae-root.wae-orientation-vertical .wae-pen-main,.wae-root.wae-orientation-vertical .wae-text-main,.wae-root.wae-orientation-vertical .wae-capture-main,.wae-root.wae-orientation-vertical .wae-eraser-main{width:calc(var(--button-size) - 10px)}",
+        ".wae-root.wae-orientation-vertical .wae-pen-dropdown,.wae-root.wae-orientation-vertical .wae-text-dropdown,.wae-root.wae-orientation-vertical .wae-capture-dropdown,.wae-root.wae-orientation-vertical .wae-eraser-dropdown{width:10px;border-left:1px solid rgba(148,163,184,.18);font-size:calc(9px * var(--toolbar-scale))}",
         ".wae-pen-main:hover,.wae-pen-dropdown:hover,.wae-text-main:hover,.wae-text-dropdown:hover,.wae-capture-main:hover,.wae-capture-dropdown:hover,.wae-eraser-main:hover,.wae-eraser-dropdown:hover{background:rgba(255,255,255,.08)}",
         ".wae-active{border-color:#60a5fa!important;background:rgba(59,130,246,.34)!important;box-shadow:0 0 0 1px rgba(96,165,250,.48) inset}",
         ".wae-collapse{margin-left:calc(7px * var(--toolbar-scale));border-color:rgba(148,163,184,.30)!important;background:linear-gradient(180deg, rgba(30,41,59,.96), rgba(15,23,42,.96));color:#dbeafe;position:relative;border-radius:calc(10px * var(--toolbar-scale));box-shadow:none!important}",
         ".wae-collapse::before{content:'';position:absolute;left:calc(-5px * var(--toolbar-scale));top:18%;width:1px;height:64%;background:rgba(148,163,184,.35)}",
+        ".wae-root.wae-orientation-vertical .wae-collapse{margin-left:0;margin-top:calc(7px * var(--toolbar-scale))}",
+        ".wae-root.wae-orientation-vertical .wae-collapse::before{left:18%;top:calc(-5px * var(--toolbar-scale));width:64%;height:1px}",
         ".wae-collapse:hover{background:linear-gradient(180deg, rgba(51,65,85,.98), rgba(17,24,39,.98))!important;border-color:rgba(191,219,254,.52)!important;color:#eff6ff}",
         ".wae-collapse:active{transform:translateY(1px)}",
         ".wae-popover,.wae-settings-panel{position:fixed;left:0;top:0;right:auto;bottom:auto;box-sizing:border-box;border:1px solid rgba(148,163,184,.22);background:rgba(15,23,42,.98);box-shadow:0 14px 34px rgba(0,0,0,.35);z-index:2147483647;opacity:0;pointer-events:none;transform:translate(var(--wae-popover-shift-x,0),var(--wae-popover-shift-y,4px)) scale(.95);transition:opacity 150ms ease,transform 150ms ease;transform-origin:var(--wae-origin,left top)}",
@@ -226,9 +315,13 @@
         ".wae-clear-cancel{background:rgba(255,255,255,.08);color:#e5e7eb}",
         ".wae-clear-confirm-button{background:rgba(239,68,68,.88);color:#fff}",
         ".wae-color-button{border-radius:50%}",
+        ".wae-root.wae-orientation-vertical .wae-color-button{border-radius:calc(9px * var(--toolbar-scale))}",
         ".wae-current-color{width:calc(18px * var(--toolbar-scale));height:calc(18px * var(--toolbar-scale));border-radius:50%;border:1px solid rgba(255,255,255,.45);box-shadow:0 0 0 1px rgba(0,0,0,.18)}",
+        ".wae-root.wae-orientation-vertical .wae-current-color{width:calc(16px * var(--toolbar-scale));height:calc(16px * var(--toolbar-scale))}",
         ".wae-width-preview{width:calc(22px * var(--toolbar-scale));height:calc(18px * var(--toolbar-scale));display:flex;align-items:center;justify-content:center}",
+        ".wae-root.wae-orientation-vertical .wae-width-preview{width:calc(18px * var(--toolbar-scale));height:calc(16px * var(--toolbar-scale))}",
         ".wae-width-preview span,.wae-width-line{display:block;width:calc(21px * var(--toolbar-scale));border-radius:999px;background:#f8fafc}",
+        ".wae-root.wae-orientation-vertical .wae-width-preview span{width:calc(18px * var(--toolbar-scale))}",
         ".wae-color-popover{min-width:240px;min-height:260px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;display:grid;gap:8px;padding:8px;border-radius:12px;background:transparent}",
         ".wae-color-popover.wae-mounted{display:block!important;width:min(272px,calc(100vw - 16px));min-height:300px;max-height:calc(100vh - 16px);overflow:auto;padding:10px;border-radius:12px;background:rgba(15,23,42,.98)}",
         ".wae-color-panel{box-sizing:border-box;display:grid;gap:9px;width:100%;min-height:280px}",
@@ -989,11 +1082,12 @@
         { id: "brush", label: "붓펜", icon: "brush", type: "pen" }
       ];
       this.refs.penPopover.innerHTML = items.map((item) => {
+        const label = item.id ? this.t(item.id) : item.label;
         const active = item.type === "highlighter"
           ? this.state.mode === "draw" && this.state.tool === "highlighter"
           : this.state.selectedPenType === item.id && this.state.tool !== "highlighter";
         const data = item.type === "highlighter" ? 'data-pen-tool="highlighter"' : `data-pen-type="${item.id}"`;
-        return `<button class="wae-list-item${active ? " wae-active" : ""}" ${data} title="${item.label}">${this.icon(item.icon)}<span>${item.label}</span></button>`;
+        return `<button class="wae-list-item${active ? " wae-active" : ""}" ${data} title="${label}">${this.icon(item.icon)}<span>${label}</span></button>`;
       }).join("");
     }
 
@@ -1284,16 +1378,33 @@
       const penType = WAE.getPenType(this.state.selectedPenType);
       const penSettings = this.state.penSettings[this.state.selectedPenType];
       const activePenIcon = this.state.tool === "select" ? "hand" : (this.state.tool === "highlighter" ? "highlighter" : penType.icon);
+      const displayPenLabel = this.state.tool === "select" ? this.t("select") : (this.state.tool === "highlighter" ? this.t("highlighter") : this.t(penType.id));
+      const orientation = this.state.uiSettings && this.state.uiSettings.toolbarOrientation === "vertical" ? "vertical" : "horizontal";
       const activePenLabel = this.state.tool === "select" ? "선택/이동" : (this.state.tool === "highlighter" ? "형광펜" : penType.label);
       this.refs.root.classList.toggle("wae-open", this.state.menuOpen && !this.toolbarClosing);
       this.refs.root.classList.toggle("wae-closing", this.toolbarClosing);
+      this.refs.root.classList.toggle("wae-orientation-vertical", orientation === "vertical");
+      this.refs.root.classList.toggle("wae-orientation-horizontal", orientation !== "vertical");
       this.refs.penIcon.innerHTML = this.icon(activePenIcon);
       this.refs.toggle.innerHTML = this.icon(activePenIcon);
+      this.refs.toggle.title = this.t("openTools");
+      this.refs.toggle.setAttribute("aria-label", this.t("openTools"));
       this.refs.penButton.title = activePenLabel;
+      this.refs.penButton.title = displayPenLabel;
+      this.refs.penMainButton.title = `${displayPenLabel} - ${this.t("drawStart")}`;
+      this.refs.colorButton.title = this.t("color");
+      this.refs.widthButton.title = this.t("width");
+      this.refs.textMainButton.title = this.t("text");
+      this.refs.captureMainButton.title = this.t("capture");
+      this.refs.eraserMainButton.title = this.t("eraser");
+      this.refs.select.title = this.t("select");
+      this.refs.navigation.title = this.t("navigate");
       this.refs.penMainButton.title = `${activePenLabel} - 필기 시작`;
       this.refs.penButton.classList.toggle("wae-active", this.state.mode === "draw" && (this.state.tool === "pen" || this.state.tool === "highlighter"));
+      this.refs.penMainButton.title = `${displayPenLabel} - ${this.t("drawStart")}`;
       this.refs.settingsIcon.innerHTML = this.icon(penType.icon);
       this.refs.settingsTitle.textContent = penType.label;
+      this.refs.settingsTitle.textContent = this.t(penType.id);
       this.refs.colorDot.style.background = penSettings.color;
       this.refs.widthPreview.firstElementChild.style.height = `${Math.max(1, Math.min(18, penSettings.width))}px`;
       this.refs.widthButton.classList.toggle("wae-active", this.activePopover === "width");

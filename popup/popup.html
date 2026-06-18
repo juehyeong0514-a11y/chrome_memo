@@ -31,20 +31,41 @@
         <p id="unavailableMessage" class="notice" hidden>&#51060; &#54168;&#51060;&#51648;&#50640;&#49436;&#45716; &#54869;&#51109; &#54532;&#47196;&#44536;&#47016;&#51012; &#49324;&#50857;&#54624; &#49688; &#50630;&#49845;&#45768;&#45796;.</p>
       </section>
 
-      <section class="scale-box" aria-label="도구막대 크기">
+      <button id="advancedSettingsToggle" class="settings-toggle" type="button" aria-expanded="false" aria-controls="advancedSettingsPanel">
+        <span>&#54872;&#44221;&#49444;&#51221;</span>
+        <span class="settings-toggle-icon" aria-hidden="true">&#9662;</span>
+      </button>
+
+      <section id="advancedSettingsPanel" class="settings-box settings-collapsible" aria-label="&#54872;&#44221;&#49444;&#51221;" aria-hidden="true">
         <div class="section-title">
-          <span>도구막대 크기</span>
-          <strong id="toolbarScaleValue">보통 100%</strong>
+          <span>&#46020;&#44396;&#47561;&#45824; &#53356;&#44592;</span>
+          <strong id="toolbarScaleValue">&#48372;&#53685; 100%</strong>
         </div>
-        <input id="toolbarScaleSlider" class="scale-slider" type="range" min="0.78" max="1.35" step="0.01" aria-label="도구막대 크기">
+        <input id="toolbarScaleSlider" class="scale-slider" type="range" min="0.78" max="1.35" step="0.01" aria-label="&#46020;&#44396;&#47561;&#45824; &#53356;&#44592;">
         <div class="scale-labels" aria-hidden="true">
-          <span>작게</span>
-          <span>보통</span>
-          <span>크게</span>
+          <span>&#51089;&#44172;</span>
+          <span>&#48372;&#53685;</span>
+          <span>&#53356;&#44172;</span>
         </div>
+
+        <div class="section-title">
+          <span>&#46020;&#44396;&#47561;&#45824; &#48169;&#54693;</span>
+          <strong id="toolbarOrientationValue">&#44032;&#47196;</strong>
+        </div>
+        <div class="segmented" role="group" aria-label="&#46020;&#44396;&#47561;&#45824; &#48169;&#54693;">
+          <button id="orientationHorizontal" type="button" data-orientation="horizontal">&#44032;&#47196;</button>
+          <button id="orientationVertical" type="button" data-orientation="vertical">&#49464;&#47196;</button>
+        </div>
+        <label class="select-row">
+          <span>&#50616;&#50612;</span>
+          <select id="languageSelect" aria-label="&#50616;&#50612;">
+            <option value="ko">&#54620;&#44397;&#50612;</option>
+            <option value="en">English</option>
+          </select>
+        </label>
       </section>
 
-      <button id="clearAnnotations" class="danger" type="button">전체 지우기</button>
+      <button id="clearAnnotations" class="danger" type="button">&#51204;&#52404; &#51648;&#50864;&#44592;</button>
       <button id="resetPosition" class="reset" type="button">&#46020;&#44396; &#50948;&#52824; &#52488;&#44592;&#54868;</button>
     </main>
     <script src="popup.js"></script>

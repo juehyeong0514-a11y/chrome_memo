@@ -3,7 +3,7 @@
 }
 
 body {
-  width: 280px;
+  width: 240px;
   margin: 0;
   color: #111827;
   background: #f8fafc;
@@ -11,7 +11,7 @@ body {
 }
 
 .popup {
-  padding: 14px;
+  padding: 10px;
 }
 
 .header {
@@ -19,26 +19,26 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 h1 {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.2;
 }
 
 p {
   margin: 2px 0 0;
   color: #64748b;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .switch {
   position: relative;
   display: inline-flex;
-  width: 46px;
-  height: 26px;
+  width: 42px;
+  height: 24px;
   flex: 0 0 auto;
 }
 
@@ -61,8 +61,8 @@ p {
   position: absolute;
   top: 3px;
   left: 3px;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #ffffff;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25);
@@ -74,13 +74,13 @@ p {
 }
 
 .switch input:checked + span::after {
-  transform: translateX(20px);
+  transform: translateX(18px);
 }
 
 .status-box {
-  padding: 10px;
+  padding: 8px;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #ffffff;
 }
 
@@ -89,8 +89,8 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 28px;
-  font-size: 12px;
+  min-height: 24px;
+  font-size: 11px;
 }
 
 .row span {
@@ -99,7 +99,7 @@ p {
 
 .row strong {
   color: #0f172a;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .notice {
@@ -112,11 +112,11 @@ p {
   word-break: keep-all;
 }
 
-.scale-box {
-  margin-top: 12px;
-  padding: 10px;
+.settings-box {
+  margin-top: 8px;
+  padding: 8px;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #ffffff;
 }
 
@@ -125,15 +125,15 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: #475569;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .section-title strong {
   color: #2563eb;
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -152,15 +152,112 @@ p {
   font-weight: 700;
 }
 
+.settings-toggle {
+  width: 100%;
+  height: 26px;
+  margin-top: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  color: #0f172a;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.settings-toggle[aria-expanded="true"] {
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+.settings-toggle-icon {
+  font-size: 10px;
+  line-height: 1;
+  transition: transform 140ms ease;
+}
+
+.settings-toggle[aria-expanded="true"] .settings-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.settings-collapsible {
+  max-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  border-color: transparent;
+  opacity: 0;
+  transition: max-height 180ms ease, margin-top 180ms ease, padding 180ms ease, opacity 140ms ease, border-color 140ms ease;
+}
+
+.settings-collapsible.open {
+  max-height: 240px;
+  margin-top: 5px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  border-color: #e2e8f0;
+  opacity: 1;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.segmented button {
+  height: 30px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  color: #475569;
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.segmented button.active {
+  border-color: #2563eb;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.select-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.select-row select {
+  min-width: 112px;
+  height: 30px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  color: #111827;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .danger {
   width: 100%;
-  height: 34px;
-  margin-top: 12px;
+  height: 30px;
+  margin-top: 8px;
   border: 0;
   border-radius: 8px;
   color: #ffffff;
   background: #dc2626;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -172,13 +269,13 @@ p {
 
 .reset {
   width: 100%;
-  height: 34px;
-  margin-top: 12px;
+  height: 30px;
+  margin-top: 8px;
   border: 0;
   border-radius: 8px;
   color: #ffffff;
   background: #111827;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
 }

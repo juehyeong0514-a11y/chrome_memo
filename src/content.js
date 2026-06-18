@@ -33,7 +33,9 @@
       eraserSettings: WAE.normalizeEraserSettings(),
       textSettings: WAE.normalizeTextSettings(),
       uiSettings: {
-        toolbarScale: 1
+        toolbarScale: 1,
+        toolbarOrientation: "horizontal",
+        language: "ko"
       },
       recentColors: [],
       customColors: [],
@@ -118,12 +120,16 @@
       },
       onPenType: (penType) => {
         state.selectedPenType = WAE.getPenType(penType).id;
+        syncCurrentPenState();
         savePenPreferences();
       },
       onPenSettings: (penType, partial) => {
         state.penSettings = WAE.normalizePenSettings(Object.assign({}, state.penSettings, {
           [penType]: Object.assign({}, state.penSettings[penType], partial)
         }));
+        if (penType === state.selectedPenType) {
+          syncCurrentPenState();
+        }
         savePenPreferences();
         canvasManager.render();
       },
@@ -194,7 +200,9 @@
         globalEnabled: true,
         siteSettings: {},
         uiSettings: {
-          toolbarScale: 1
+          toolbarScale: 1,
+          toolbarOrientation: "horizontal",
+          language: "ko"
         }
       };
     }
@@ -203,6 +211,23 @@
       const value = Number(scale);
       if (!Number.isFinite(value)) return 1;
       return Math.round(WAE.clamp(value, 0.78, 1.35) * 100) / 100;
+    }
+
+    function normalizeToolbarOrientation(orientation) {
+      return orientation === "vertical" ? "vertical" : "horizontal";
+    }
+
+    function normalizeLanguage(language) {
+      return language === "en" ? "en" : "ko";
+    }
+
+    function normalizeUiSettings(settings) {
+      const source = settings || {};
+      return {
+        toolbarScale: normalizeToolbarScale(source.toolbarScale),
+        toolbarOrientation: normalizeToolbarOrientation(source.toolbarOrientation),
+        language: normalizeLanguage(source.language)
+      };
     }
 
     function saveDebounced() {
@@ -250,6 +275,16 @@
       storage.set({ customColors: state.customColors });
     }
 
+    function currentPenSettings() {
+      return state.penSettings[state.selectedPenType] || WAE.CONFIG.defaultPenSettings.ballpoint;
+    }
+
+    function syncCurrentPenState() {
+      const settings = currentPenSettings();
+      state.color = settings.color || WAE.CONFIG.defaultColor;
+      state.width = Number(settings.width) || WAE.CONFIG.defaultWidth;
+    }
+
     async function saveToolbarScale(scale) {
       const normalized = normalizeToolbarScale(scale);
       state.uiSettings.toolbarScale = normalized;
@@ -259,6 +294,21 @@
       settings.uiSettings = Object.assign({}, defaultSettings().uiSettings, settings.uiSettings || {}, {
         toolbarScale: normalized
       });
+      await storage.set({ [settingsKey]: settings });
+    }
+
+    async function saveUiSettings(partial) {
+      const next = normalizeUiSettings(Object.assign({}, state.uiSettings, partial));
+      state.uiSettings = next;
+      if (uiMounted) {
+        toolbar.setScale(next.toolbarScale);
+        toolbar.keepInViewport();
+        toolbar.update();
+      }
+      const result = await storage.get([settingsKey]);
+      const settings = Object.assign(defaultSettings(), result[settingsKey] || {});
+      settings.siteSettings = settings.siteSettings || {};
+      settings.uiSettings = Object.assign({}, defaultSettings().uiSettings, settings.uiSettings || {}, next);
       await storage.set({ [settingsKey]: settings });
     }
 
@@ -323,15 +373,14 @@
       if (state.tool === "eraser") {
         return WAE.normalizeEraserSettings(state.eraserSettings).size;
       }
-      const settings = state.penSettings[state.selectedPenType] || WAE.CONFIG.defaultPenSettings.ballpoint;
+      const settings = currentPenSettings();
       const width = Number(settings.width) || WAE.CONFIG.defaultWidth;
       return state.tool === "highlighter" ? width * WAE.CONFIG.highlighterWidthMultiplier : width;
     }
 
     function getCursorPreviewColor() {
       if (state.tool === "eraser") return "#f87171";
-      if (state.tool === "highlighter") return state.color || "#facc15";
-      const settings = state.penSettings[state.selectedPenType] || WAE.CONFIG.defaultPenSettings.ballpoint;
+      const settings = currentPenSettings();
       return settings.color || WAE.CONFIG.defaultColor;
     }
 
@@ -1085,7 +1134,7 @@
       const pageKey = state.memoryPageKey || WAE.getPageKey();
       const result = await storage.get([positionKey, settingsKey, pageKey].concat(penSettingsKeys).concat(eraserSettingsKeys).concat(textSettingsKeys));
       const settings = Object.assign(defaultSettings(), result[settingsKey] || {});
-      settings.uiSettings = Object.assign({}, defaultSettings().uiSettings, settings.uiSettings || {});
+      settings.uiSettings = normalizeUiSettings(settings.uiSettings);
       const savedPosition = result[positionKey] && result[positionKey].toolbarPosition
         ? result[positionKey].toolbarPosition
         : result[positionKey];
@@ -1093,8 +1142,9 @@
       state.eraserSettings = WAE.normalizeEraserSettings(result.eraserSettings);
       state.textSettings = WAE.normalizeTextSettings(result.textSettings);
       state.eraserRadius = state.eraserSettings.size / 2;
-      state.uiSettings.toolbarScale = normalizeToolbarScale(settings.uiSettings.toolbarScale);
+      state.uiSettings = normalizeUiSettings(settings.uiSettings);
       state.selectedPenType = WAE.getPenType(result.selectedPenType || state.selectedPenType).id;
+      syncCurrentPenState();
       state.recentColors = WAE.normalizeRecentColors(result.recentColors);
       state.customColors = WAE.normalizeCustomColors(result.customColors);
       loadAnnotations(result[pageKey]);
@@ -1228,6 +1278,11 @@
           } else if (message.type === "SET_TOOLBAR_SCALE") {
             setToolbarScale(message.scale).then(() => {
               sendResponse({ ok: true, scale: state.uiSettings.toolbarScale });
+            });
+            return true;
+          } else if (message.type === "SET_UI_SETTINGS") {
+            saveUiSettings(message.uiSettings || {}).then(() => {
+              sendResponse({ ok: true, uiSettings: state.uiSettings });
             });
             return true;
           } else if (message.type === "PREVIEW_TOOLBAR_SCALE") {

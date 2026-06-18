@@ -114,16 +114,13 @@
         id: this.nextStrokeId++,
         tool,
         penType: tool === "pen" ? this.state.selectedPenType : undefined,
-        color: tool === "pen" ? penSettings.color : this.state.color,
-        width: tool === "highlighter" ? this.state.width * WAE.CONFIG.highlighterWidthMultiplier : this.state.width,
+        color: penSettings.color,
+        width: tool === "highlighter" ? penSettings.width * WAE.CONFIG.highlighterWidthMultiplier : penSettings.width,
         opacity: tool === "highlighter" ? WAE.CONFIG.highlighterOpacity : penSettings.opacity,
         pressureSensitivity: tool === "pen" ? penSettings.pressureSensitivity : 0,
         roundness: tool === "pen" ? penSettings.roundness : 1,
         points: [this.canvasManager.documentPoint(event, this.getPointMeta(event))]
       };
-      if (tool === "pen") {
-        this.state.activeStroke.width = penSettings.width;
-      }
       this.state.strokes.push(this.state.activeStroke);
       this.canvasManager.render();
     }

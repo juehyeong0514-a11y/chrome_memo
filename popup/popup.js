@@ -17,7 +17,9 @@
     globalEnabled: true,
     siteSettings: {},
     uiSettings: {
-      toolbarScale: 1
+      toolbarScale: 1,
+      toolbarOrientation: "horizontal",
+      language: "ko"
     }
   };
 
@@ -29,11 +31,17 @@
   const resetPosition = document.getElementById("resetPosition");
   const toolbarScaleSlider = document.getElementById("toolbarScaleSlider");
   const toolbarScaleValue = document.getElementById("toolbarScaleValue");
+  const toolbarOrientationValue = document.getElementById("toolbarOrientationValue");
+  const orientationButtons = Array.from(document.querySelectorAll("[data-orientation]"));
+  const languageSelect = document.getElementById("languageSelect");
+  const advancedSettingsToggle = document.getElementById("advancedSettingsToggle");
+  const advancedSettingsPanel = document.getElementById("advancedSettingsPanel");
 
   let currentTab = null;
   let pageAvailable = false;
   let unavailableReason = "";
   let scaleApplyTimer = 0;
+  let advancedSettingsOpen = false;
 
   function getSettings() {
     return new Promise((resolve) => {
@@ -44,7 +52,9 @@
           globalEnabled: stored.globalEnabled !== false,
           siteSettings: stored.siteSettings || {},
           uiSettings: {
-            toolbarScale: normalizeToolbarScale(uiSettings.toolbarScale)
+            toolbarScale: normalizeToolbarScale(uiSettings.toolbarScale),
+            toolbarOrientation: uiSettings.toolbarOrientation === "vertical" ? "vertical" : "horizontal",
+            language: uiSettings.language === "en" ? "en" : "ko"
           }
         });
       });
@@ -59,8 +69,17 @@
 
   function toolbarScaleLabel(scale) {
     const value = normalizeToolbarScale(scale);
-    const label = value < 0.94 ? "작게" : (value < 1.12 ? "보통" : "크게");
+    const label = value < 0.94 ? "\uc791\uac8c" : (value < 1.12 ? "\ubcf4\ud1b5" : "\ud06c\uac8c");
     return `${label} ${Math.round(value * 100)}%`;
+  }
+
+  function normalizeUiSettings(uiSettings) {
+    const source = Object.assign({}, DEFAULT_SETTINGS.uiSettings, uiSettings || {});
+    return {
+      toolbarScale: normalizeToolbarScale(source.toolbarScale),
+      toolbarOrientation: source.toolbarOrientation === "vertical" ? "vertical" : "horizontal",
+      language: source.language === "en" ? "en" : "ko"
+    };
   }
 
   function saveSettings(settings) {
@@ -211,6 +230,19 @@
     }));
   }
 
+  async function broadcastUiSettings(uiSettings) {
+    const normalized = normalizeUiSettings(uiSettings);
+    const tabs = await getAllTabs();
+    await Promise.all(tabs.map(async (tab) => {
+      const classification = classifyUrl(tab.url);
+      if (!classification.supported) return;
+      const ready = await ensureContentScript(tab);
+      if (ready.ok) {
+        await sendToTab(tab, { type: "SET_UI_SETTINGS", uiSettings: normalized });
+      }
+    }));
+  }
+
   async function applyToolbarScale(scale) {
     const settings = Object.assign({}, DEFAULT_SETTINGS, await getSettings());
     settings.siteSettings = settings.siteSettings || {};
@@ -219,6 +251,15 @@
     });
     await saveSettings(settings);
     await broadcastToolbarScale(settings.uiSettings.toolbarScale);
+    render(settings);
+  }
+
+  async function applyUiSettings(partial) {
+    const settings = Object.assign({}, DEFAULT_SETTINGS, await getSettings());
+    settings.siteSettings = settings.siteSettings || {};
+    settings.uiSettings = normalizeUiSettings(Object.assign({}, settings.uiSettings || {}, partial));
+    await saveSettings(settings);
+    await broadcastUiSettings(settings.uiSettings);
     render(settings);
   }
 
@@ -234,14 +275,27 @@
   function render(settings) {
     enabledToggle.checked = settings.globalEnabled;
     enabledText.textContent = settings.globalEnabled ? "ON" : "OFF";
-    const scale = normalizeToolbarScale(settings.uiSettings && settings.uiSettings.toolbarScale);
+    const uiSettings = normalizeUiSettings(settings.uiSettings);
+    const scale = uiSettings.toolbarScale;
     toolbarScaleSlider.value = String(scale);
     toolbarScaleValue.textContent = toolbarScaleLabel(scale);
+    toolbarOrientationValue.textContent = uiSettings.toolbarOrientation === "vertical" ? "\uc138\ub85c" : "\uac00\ub85c";
+    orientationButtons.forEach((button) => {
+      button.classList.toggle("active", button.dataset.orientation === uiSettings.toolbarOrientation);
+    });
+    languageSelect.value = uiSettings.language;
     pageStatus.textContent = pageAvailable ? "\uc0ac\uc6a9 \uac00\ub2a5" : "\uc0ac\uc6a9 \ubd88\uac00";
     unavailableMessage.hidden = pageAvailable && !unavailableReason;
     unavailableMessage.textContent = unavailableReason || "\uc774 \ud398\uc774\uc9c0\uc5d0\uc11c\ub294 \ud655\uc7a5 \ud504\ub85c\uadf8\ub7a8\uc744 \uc0ac\uc6a9\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.";
     clearAnnotations.disabled = !pageAvailable;
     resetPosition.disabled = !pageAvailable;
+  }
+
+  function setAdvancedSettingsOpen(open) {
+    advancedSettingsOpen = Boolean(open);
+    advancedSettingsToggle.setAttribute("aria-expanded", String(advancedSettingsOpen));
+    advancedSettingsPanel.setAttribute("aria-hidden", String(!advancedSettingsOpen));
+    advancedSettingsPanel.classList.toggle("open", advancedSettingsOpen);
   }
 
   async function refresh() {
@@ -298,6 +352,20 @@
     await applyToolbarScale(toolbarScaleSlider.value);
   });
 
+  orientationButtons.forEach((button) => {
+    button.addEventListener("click", async () => {
+      await applyUiSettings({ toolbarOrientation: button.dataset.orientation });
+    });
+  });
+
+  languageSelect.addEventListener("change", async () => {
+    await applyUiSettings({ language: languageSelect.value });
+  });
+
+  advancedSettingsToggle.addEventListener("click", () => {
+    setAdvancedSettingsOpen(!advancedSettingsOpen);
+  });
+
   clearAnnotations.addEventListener("click", async () => {
     currentTab = await getCurrentTab();
     clearAnnotations.disabled = true;
@@ -335,5 +403,6 @@
     resetPosition.disabled = !pageAvailable;
   });
 
+  setAdvancedSettingsOpen(false);
   refresh();
 })();
