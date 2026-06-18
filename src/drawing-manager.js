@@ -11,6 +11,8 @@
       this.nextStrokeId = 1;
       this.activeErase = null;
       this.activeSelectionMove = null;
+      this.straightLineMode = false;
+      this.activeFreehandPoints = null;
       this.bound = false;
       this.handlers = {
         pointerdown: (event) => this.onPointerDown(event),
@@ -84,6 +86,8 @@
       this.state.isErasing = false;
       this.activeErase = null;
       this.activeSelectionMove = null;
+      this.straightLineMode = false;
+      this.activeFreehandPoints = null;
       this.state.selectionMove = null;
     }
 
@@ -110,6 +114,8 @@
 
       const tool = this.state.tool === "highlighter" ? "highlighter" : "pen";
       const penSettings = this.state.penSettings[this.state.selectedPenType] || WAE.CONFIG.defaultPenSettings.ballpoint;
+      const startPoint = this.canvasManager.documentPoint(event, this.getPointMeta(event));
+      this.activeFreehandPoints = [startPoint];
       this.state.activeStroke = {
         id: this.nextStrokeId++,
         tool,
@@ -119,7 +125,7 @@
         opacity: tool === "highlighter" ? WAE.CONFIG.highlighterOpacity : penSettings.opacity,
         pressureSensitivity: tool === "pen" ? penSettings.pressureSensitivity : 0,
         roundness: tool === "pen" ? penSettings.roundness : 1,
-        points: [this.canvasManager.documentPoint(event, this.getPointMeta(event))]
+        points: [startPoint]
       };
       this.state.strokes.push(this.state.activeStroke);
       this.canvasManager.render();
@@ -142,7 +148,7 @@
         return;
       }
       this.eachPointerSample(event, (sample) => {
-        this.appendPoint(this.state.activeStroke, this.canvasManager.documentPoint(sample, this.getPointMeta(sample)));
+        this.appendActivePoint(this.canvasManager.documentPoint(sample, this.getPointMeta(sample)));
       });
       this.canvasManager.requestRender();
     }
@@ -169,7 +175,7 @@
       }
 
       if (this.state.activeStroke) {
-        this.appendPoint(this.state.activeStroke, this.canvasManager.documentPoint(event, this.getPointMeta(event)));
+        this.appendActivePoint(this.canvasManager.documentPoint(event, this.getPointMeta(event)));
         this.pushAction({ type: "add", stroke: WAE.cloneStroke(this.state.activeStroke) });
         this.canvasManager.render();
       }
@@ -181,6 +187,8 @@
       this.state.activeStroke = null;
       this.state.isErasing = false;
       this.activeErase = null;
+      this.activeFreehandPoints = null;
+      this.straightLineMode = false;
     }
 
     onSelectPointerDown(event) {
@@ -266,25 +274,82 @@
       (samples.length ? samples : [event]).forEach(callback);
     }
 
+    setStraightLineMode(enabled) {
+      const next = Boolean(enabled);
+      if (this.straightLineMode === next) {
+        return;
+      }
+      this.straightLineMode = next;
+      this.refreshActiveStrokeShape();
+      if (this.state.activeStroke) {
+        this.canvasManager.requestRender();
+      }
+    }
+
+    appendActivePoint(point) {
+      if (!this.state.activeStroke) return;
+      if (!this.activeFreehandPoints) {
+        this.activeFreehandPoints = this.state.activeStroke.points.map((item) => Object.assign({}, item));
+      }
+      this.appendPointToArray(this.activeFreehandPoints, point, this.state.activeStroke.width);
+      this.refreshActiveStrokeShape();
+    }
+
+    refreshActiveStrokeShape() {
+      const stroke = this.state.activeStroke;
+      if (!stroke || !this.activeFreehandPoints || !this.activeFreehandPoints.length) {
+        return;
+      }
+      stroke.points = this.straightLineMode
+        ? this.straightLinePoints(stroke, this.activeFreehandPoints)
+        : this.activeFreehandPoints.map((point) => Object.assign({}, point));
+    }
+
+    straightLinePoints(stroke, sourcePoints) {
+      if (!sourcePoints || sourcePoints.length < 2) {
+        return (sourcePoints || []).map((point) => Object.assign({}, point));
+      }
+      const start = sourcePoints[0];
+      const end = sourcePoints[sourcePoints.length - 1];
+      const distance = Math.hypot(end.x - start.x, end.y - start.y);
+      const step = Math.max(2, Math.min(8, (Number(stroke.width) || WAE.CONFIG.defaultWidth) * 0.65));
+      const segments = Math.max(1, Math.ceil(distance / step));
+      const points = [];
+      for (let index = 0; index <= segments; index += 1) {
+        const t = index / segments;
+        points.push({
+          x: start.x + (end.x - start.x) * t,
+          y: start.y + (end.y - start.y) * t,
+          pressure: start.pressure + ((end.pressure || start.pressure) - start.pressure) * t,
+          time: Math.round(start.time + ((end.time || start.time) - start.time) * t)
+        });
+      }
+      return points;
+    }
+
     normalizePressure(value) {
       const pressure = Number(value);
       return Number.isFinite(pressure) && pressure > 0 ? WAE.clamp(pressure, 0.05, 1) : 0.5;
     }
 
     appendPoint(stroke, point) {
-      const previous = stroke.points[stroke.points.length - 1];
+      this.appendPointToArray(stroke.points, point, stroke.width);
+    }
+
+    appendPointToArray(points, point, width) {
+      const previous = points[points.length - 1];
       if (!previous) {
-        stroke.points.push(point);
+        points.push(point);
         return;
       }
 
       const distance = Math.hypot(point.x - previous.x, point.y - previous.y);
-      const step = Math.max(2, Math.min(8, (Number(stroke.width) || WAE.CONFIG.defaultWidth) * 0.65));
+      const step = Math.max(2, Math.min(8, (Number(width) || WAE.CONFIG.defaultWidth) * 0.65));
       const segments = Math.max(1, Math.ceil(distance / step));
 
       for (let index = 1; index <= segments; index += 1) {
         const t = index / segments;
-        stroke.points.push({
+        points.push({
           x: previous.x + (point.x - previous.x) * t,
           y: previous.y + (point.y - previous.y) * t,
           pressure: previous.pressure + (point.pressure - previous.pressure) * t,

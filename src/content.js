@@ -1199,6 +1199,11 @@
         setMode("navigate");
         return;
       }
+      if (event.key === "Shift" && state.activeStroke && (state.tool === "pen" || state.tool === "highlighter")) {
+        event.preventDefault();
+        drawingManager.setStraightLineMode(true);
+        return;
+      }
       const key = event.key.toLowerCase();
       if (event.ctrlKey && event.shiftKey && key === "z") {
         event.preventDefault();
@@ -1209,6 +1214,19 @@
       } else if (event.ctrlKey && key === "y") {
         event.preventDefault();
         drawingManager.redo();
+      }
+    }
+
+    function handleKeyup(event) {
+      if (event.key !== "Shift") {
+        return;
+      }
+      if (!state.enabled || WAE.isEditableTarget(event.target) || textManager.editing) {
+        return;
+      }
+      if (drawingManager.straightLineMode) {
+        event.preventDefault();
+        drawingManager.setStraightLineMode(false);
       }
     }
 
@@ -1244,6 +1262,7 @@
     restore();
 
     window.addEventListener("keydown", handleKeydown, true);
+    window.addEventListener("keyup", handleKeyup, true);
     window.addEventListener("pagehide", saveNowWithCurrentEdit);
     window.addEventListener("popstate", handleUrlChange);
     window.addEventListener("hashchange", handleUrlChange);
