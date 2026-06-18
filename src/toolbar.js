@@ -73,6 +73,7 @@
         clearConfirm: this.shadow.querySelector(".wae-clear-confirm"),
         clearCancel: this.shadow.querySelector(".wae-clear-cancel"),
         clearConfirmButton: this.shadow.querySelector(".wae-clear-confirm-button"),
+        select: this.shadow.querySelector(".wae-select"),
         navigation: this.shadow.querySelector(".wae-navigation"),
         collapse: this.shadow.querySelector(".wae-collapse"),
         highlighter: this.shadow.querySelector(".wae-highlighter"),
@@ -116,6 +117,9 @@
       }
       if (type === "eye") {
         return `<svg ${common}><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="3"/></svg>`;
+      }
+      if (type === "hand") {
+        return `<svg ${common}><path d="M18 11.5V10a1.5 1.5 0 0 0-3 0v1"/><path d="M15 10.5V8.7a1.5 1.5 0 0 0-3 0v2.8"/><path d="M12 9.5V7.7a1.5 1.5 0 0 0-3 0v6.8"/><path d="M9 14.5l-1.1-1.1a1.7 1.7 0 0 0-2.4 2.4l3.4 3.4A6 6 0 0 0 13.1 21H15a4 4 0 0 0 4-4v-5.5a1.5 1.5 0 0 0-3 0V12"/></svg>`;
       }
       if (type === "settings") {
         return `<svg ${common}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2 2-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V20h-2.9v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-2-2 .1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3.5v-2.9h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 2-2 .1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V4h2.9v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 2 2-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v2.9H21a1.7 1.7 0 0 0-1.6 1z"/></svg>`;
@@ -171,8 +175,8 @@
         ".wae-root.expand-up .wae-menu{grid-template-areas:'bar' 'handle'}",
         ".wae-root.expand-up .wae-drag-handle{grid-area:handle}",
         ".wae-root.expand-up .wae-bar{grid-area:bar}",
-        ".wae-icon-btn,.wae-pen-split,.wae-text-split,.wae-capture-split,.wae-eraser-split,.wae-color-button,.wae-width-button,.wae-navigation,.wae-collapse{box-sizing:border-box;height:var(--button-size);border:1px solid rgba(148,163,184,.18);border-radius:calc(10px * var(--toolbar-scale));background:rgba(255,255,255,.08);color:#f8fafc;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}",
-        ".wae-icon-btn,.wae-color-button,.wae-width-button,.wae-navigation,.wae-collapse{width:var(--button-size)}",
+        ".wae-icon-btn,.wae-pen-split,.wae-text-split,.wae-capture-split,.wae-eraser-split,.wae-color-button,.wae-width-button,.wae-select,.wae-navigation,.wae-collapse{box-sizing:border-box;height:var(--button-size);border:1px solid rgba(148,163,184,.18);border-radius:calc(10px * var(--toolbar-scale));background:rgba(255,255,255,.08);color:#f8fafc;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}",
+        ".wae-icon-btn,.wae-color-button,.wae-width-button,.wae-select,.wae-navigation,.wae-collapse{width:var(--button-size)}",
         ".wae-icon-btn{font-size:calc(20px * var(--toolbar-scale));line-height:1}",
         ".wae-icon-btn:disabled{opacity:.34;cursor:default;filter:saturate(.5)}",
         ".wae-undo-redo{display:inline-flex;gap:calc(4px * var(--toolbar-scale))}",
@@ -279,6 +283,7 @@
         '      <span class="wae-text-split" role="group" aria-label="텍스트 도구"><button class="wae-text-main" title="텍스트 입력" aria-label="텍스트 입력">' + this.icon("text") + '</button><button class="wae-text-dropdown" title="텍스트 설정" aria-label="텍스트 설정">▼</button></span>',
         '      <span class="wae-capture-split" role="group" aria-label="화면 캡처 도구"><button class="wae-capture-main" title="전체 화면 캡처" aria-label="전체 화면 캡처">' + this.icon("camera") + '</button><button class="wae-capture-dropdown" title="캡처 메뉴" aria-label="캡처 메뉴">▼</button></span>',
         '      <span class="wae-eraser-split" role="group" aria-label="지우개 도구"><button class="wae-eraser-main" title="지우개" aria-label="지우개">' + this.icon("eraser") + '</button><button class="wae-eraser-dropdown" title="지우개 메뉴" aria-label="지우개 메뉴">▼</button></span>',
+        '      <button class="wae-select" title="선택/이동" aria-label="선택/이동">' + this.icon("hand") + "</button>",
         '      <button class="wae-navigation" title="탐색 모드" aria-label="탐색 모드">' + this.icon("eye") + "</button>",
         '      <button class="wae-collapse" title="도구막대 접기" aria-label="도구막대 접기">' + this.icon("collapse-door") + '</button>',
         "    </div>",
@@ -418,6 +423,10 @@
         event.stopPropagation();
         this.togglePopover("eraser", this.refs.eraserDropdownButton);
       });
+      this.refs.select.addEventListener("click", () => {
+        this.closeAllPopovers();
+        this.handlers.onTool("select");
+      });
       this.refs.navigation.addEventListener("click", () => {
         this.closeAllPopovers();
         this.handlers.onMode();
@@ -439,7 +448,7 @@
         this.handlers.onTool("highlighter");
       });
       this.refs.hide.addEventListener("click", this.handlers.onHide);
-      this.refs.clear.addEventListener("click", this.handlers.onClear);
+      this.refs.clear.addEventListener("click", () => this.confirmClearAll());
       this.refs.clearCancel.addEventListener("click", () => this.hideClearConfirm());
       this.refs.clearConfirm.addEventListener("pointerdown", (event) => {
         if (event.target === this.refs.clearConfirm) {
@@ -1274,15 +1283,15 @@
     update() {
       const penType = WAE.getPenType(this.state.selectedPenType);
       const penSettings = this.state.penSettings[this.state.selectedPenType];
-      const activePenIcon = this.state.tool === "highlighter" ? "highlighter" : penType.icon;
-      const activePenLabel = this.state.tool === "highlighter" ? "형광펜" : penType.label;
+      const activePenIcon = this.state.tool === "select" ? "hand" : (this.state.tool === "highlighter" ? "highlighter" : penType.icon);
+      const activePenLabel = this.state.tool === "select" ? "선택/이동" : (this.state.tool === "highlighter" ? "형광펜" : penType.label);
       this.refs.root.classList.toggle("wae-open", this.state.menuOpen && !this.toolbarClosing);
       this.refs.root.classList.toggle("wae-closing", this.toolbarClosing);
       this.refs.penIcon.innerHTML = this.icon(activePenIcon);
       this.refs.toggle.innerHTML = this.icon(activePenIcon);
       this.refs.penButton.title = activePenLabel;
       this.refs.penMainButton.title = `${activePenLabel} - 필기 시작`;
-      this.refs.penButton.classList.toggle("wae-active", this.state.mode === "draw" && this.state.tool !== "eraser" && this.state.tool !== "text");
+      this.refs.penButton.classList.toggle("wae-active", this.state.mode === "draw" && (this.state.tool === "pen" || this.state.tool === "highlighter"));
       this.refs.settingsIcon.innerHTML = this.icon(penType.icon);
       this.refs.settingsTitle.textContent = penType.label;
       this.refs.colorDot.style.background = penSettings.color;
@@ -1290,6 +1299,7 @@
       this.refs.widthButton.classList.toggle("wae-active", this.activePopover === "width");
       this.refs.textSplit.classList.toggle("wae-active", this.state.mode === "draw" && this.state.tool === "text");
       this.refs.eraser.classList.toggle("wae-active", this.state.mode === "draw" && this.state.tool === "eraser");
+      this.refs.select.classList.toggle("wae-active", this.state.mode === "draw" && this.state.tool === "select");
       this.refs.navigation.classList.toggle("wae-active", this.state.mode === "navigate");
       this.refs.undo.disabled = this.state.undoStack.length === 0;
       this.refs.redo.disabled = this.state.redoStack.length === 0;

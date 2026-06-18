@@ -11,3 +11,7 @@
   pointer-events: auto !important;
   cursor: none !important;
 }
+
+.wae-canvas.wae-drawing-mode[data-wae-tool="select"] {
+  cursor: grab !important;
+}

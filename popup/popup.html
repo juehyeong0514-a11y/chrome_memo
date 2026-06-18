@@ -32,14 +32,19 @@
       </section>
 
       <section class="scale-box" aria-label="도구막대 크기">
-        <div class="section-title">도구막대 크기</div>
-        <div class="segments" id="toolbarScaleGroup" role="radiogroup" aria-label="도구막대 크기">
-          <button type="button" data-scale="0.85" role="radio">작게</button>
-          <button type="button" data-scale="1" role="radio">보통</button>
-          <button type="button" data-scale="1.2" role="radio">크게</button>
+        <div class="section-title">
+          <span>도구막대 크기</span>
+          <strong id="toolbarScaleValue">보통 100%</strong>
+        </div>
+        <input id="toolbarScaleSlider" class="scale-slider" type="range" min="0.78" max="1.35" step="0.01" aria-label="도구막대 크기">
+        <div class="scale-labels" aria-hidden="true">
+          <span>작게</span>
+          <span>보통</span>
+          <span>크게</span>
         </div>
       </section>
 
+      <button id="clearAnnotations" class="danger" type="button">전체 지우기</button>
       <button id="resetPosition" class="reset" type="button">&#46020;&#44396; &#50948;&#52824; &#52488;&#44592;&#54868;</button>
     </main>
     <script src="popup.js"></script>

@@ -121,39 +121,53 @@ p {
 }
 
 .section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 8px;
   color: #475569;
   font-size: 12px;
   font-weight: 700;
 }
 
-.segments {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  overflow: hidden;
-  border: 1px solid #cbd5e1;
-  border-radius: 9px;
-  background: #f8fafc;
+.section-title strong {
+  color: #2563eb;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
-.segments button {
-  height: 30px;
+.scale-slider {
+  width: 100%;
+  margin: 2px 0 7px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.scale-labels {
+  display: flex;
+  justify-content: space-between;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.danger {
+  width: 100%;
+  height: 34px;
+  margin-top: 12px;
   border: 0;
-  border-right: 1px solid #cbd5e1;
-  color: #475569;
-  background: transparent;
-  font-size: 12px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #dc2626;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
 
-.segments button:last-child {
-  border-right: 0;
-}
-
-.segments button.active {
-  color: #ffffff;
-  background: #2563eb;
+.danger:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .reset {

@@ -4,8 +4,9 @@
   const WAE = window.WebAnnotationExtension;
 
   class TextManager {
-    constructor({ state, onChange }) {
+    constructor({ state, onSelect, onChange }) {
       this.state = state;
+      this.onSelect = onSelect || (() => {});
       this.onChange = onChange || (() => {});
       this.layer = document.createElement("div");
       this.layer.className = "wae-text-layer";
@@ -190,8 +191,10 @@
           y: event.clientY,
           time: Date.now()
         };
+        this.state.selectedStrokeId = null;
         this.selectedId = String(box.dataset.textId);
         this.updateSelectionClasses();
+        this.onSelect();
         this.startInteraction(event, box.dataset.textId, "move");
         return;
       }
@@ -522,11 +525,13 @@
       this.layer.style.height = `${height}px`;
       this.layer.innerHTML = "";
       const textMode = this.state.mode === "draw" && this.state.tool === "text";
+      const selectMode = this.state.mode === "draw" && this.state.tool === "select";
+      const interactiveMode = textMode || selectMode;
       this.layer.style.pointerEvents = textMode ? "auto" : "none";
-      this.state.textItems.forEach((item) => this.renderItem(item, textMode));
+      this.state.textItems.forEach((item) => this.renderItem(item, textMode, interactiveMode));
     }
 
-    renderItem(item, textMode) {
+    renderItem(item, textMode, interactiveMode) {
       const box = document.createElement("div");
       const content = document.createElement("div");
       box.className = "wae-text-box";
@@ -544,7 +549,7 @@
         fontWeight: settings.fontWeight,
         lineHeight: "1.35",
         background: "transparent",
-        pointerEvents: textMode || this.editing ? "auto" : "none"
+        pointerEvents: interactiveMode || this.editing ? "auto" : "none"
       });
       box.appendChild(content);
       if (!this.captureHiddenState && textMode) {
@@ -553,7 +558,7 @@
         box.appendChild(this.createTextControl("span", "wae-text-resize-bottom wae-text-control", "resize-bottom", item.id));
         box.appendChild(this.createTextControl("span", "wae-text-scale wae-text-control", "scale", item.id));
       }
-      box.classList.toggle("wae-text-selected", textMode && this.selectedId === item.id && !this.captureHiddenState);
+      box.classList.toggle("wae-text-selected", interactiveMode && this.selectedId === item.id && !this.captureHiddenState);
       if (this.editing && this.editing.id === item.id) {
         box.classList.add("wae-text-editing");
       }
@@ -612,8 +617,10 @@
     updateSelectionClasses() {
       this.layer.querySelectorAll(".wae-text-box").forEach((box) => {
         const textMode = this.state.mode === "draw" && this.state.tool === "text";
-        box.classList.toggle("wae-text-selected", textMode && this.selectedId === box.dataset.textId && !this.captureHiddenState);
-        box.style.pointerEvents = textMode || this.editing ? "auto" : "none";
+        const selectMode = this.state.mode === "draw" && this.state.tool === "select";
+        const interactiveMode = textMode || selectMode;
+        box.classList.toggle("wae-text-selected", interactiveMode && this.selectedId === box.dataset.textId && !this.captureHiddenState);
+        box.style.pointerEvents = interactiveMode || this.editing ? "auto" : "none";
       });
     }
 

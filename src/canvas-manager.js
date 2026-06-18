@@ -4,9 +4,10 @@
   const WAE = window.WebAnnotationExtension;
 
   class CanvasManager {
-    constructor({ getStrokes, getHidden, getEraserPreviewState }) {
+    constructor({ getStrokes, getHidden, getSelectedStrokeId, getEraserPreviewState }) {
       this.getStrokes = getStrokes;
       this.getHidden = getHidden;
+      this.getSelectedStrokeId = getSelectedStrokeId || (() => null);
       this.getEraserPreviewState = getEraserPreviewState || (() => ({ visible: false, size: 24 }));
       this.scroll = WAE.getScrollAdapter();
       this.canvas = document.createElement("canvas");
@@ -87,6 +88,10 @@
       if (!enabled) {
         this.hideEraserPreview();
       }
+    }
+
+    setTool(tool) {
+      this.canvas.dataset.waeTool = tool || "";
     }
 
     setVisible(visible) {
@@ -352,7 +357,52 @@
       if (this.getHidden()) {
         return;
       }
-      this.getStrokes().forEach((stroke) => this.drawStroke(stroke));
+      const strokes = this.getStrokes();
+      strokes.forEach((stroke) => this.drawStroke(stroke));
+      const selectedId = this.getSelectedStrokeId();
+      if (selectedId !== null && selectedId !== undefined) {
+        const selected = strokes.find((stroke) => String(stroke.id) === String(selectedId));
+        if (selected) {
+          this.drawStrokeSelection(selected);
+        }
+      }
+    }
+
+    drawStrokeSelection(stroke) {
+      const bounds = this.strokeBounds(stroke);
+      if (!bounds) return;
+      const ctx = this.ctx;
+      const padding = Math.max(8, (Number(stroke.width) || WAE.CONFIG.defaultWidth) / 2 + 5);
+      const left = bounds.left - padding;
+      const top = bounds.top - padding;
+      const width = Math.max(12, bounds.right - bounds.left + padding * 2);
+      const height = Math.max(12, bounds.bottom - bounds.top + padding * 2);
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "#0f172a";
+      ctx.strokeRect(left, top, width, height);
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineDashOffset = 5;
+      ctx.strokeRect(left, top, width, height);
+      ctx.restore();
+    }
+
+    strokeBounds(stroke) {
+      if (!stroke || !stroke.points || !stroke.points.length) return null;
+      return stroke.points.reduce((bounds, point) => ({
+        left: Math.min(bounds.left, point.x),
+        top: Math.min(bounds.top, point.y),
+        right: Math.max(bounds.right, point.x),
+        bottom: Math.max(bounds.bottom, point.y)
+      }), {
+        left: stroke.points[0].x,
+        top: stroke.points[0].y,
+        right: stroke.points[0].x,
+        bottom: stroke.points[0].y
+      });
     }
 
     drawStroke(stroke) {

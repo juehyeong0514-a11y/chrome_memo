@@ -41,6 +41,8 @@
       hidden: false,
       activeStroke: null,
       isErasing: false,
+      selectedStrokeId: null,
+      selectionMove: null,
       strokes: [],
       textItems: [],
       undoStack: [],
@@ -51,6 +53,7 @@
     const canvasManager = new WAE.CanvasManager({
       getStrokes: () => state.strokes,
       getHidden: () => state.hidden,
+      getSelectedStrokeId: () => state.selectedStrokeId,
       getEraserPreviewState: () => ({
         visible: state.enabled && state.mode === "draw" && ["pen", "highlighter", "eraser"].includes(state.tool),
         tool: state.tool,
@@ -68,6 +71,7 @@
     });
     const textManager = new WAE.TextManager({
       state,
+      onSelect: () => canvasManager.render(),
       onChange: () => {
         toolbar.update();
         saveAnnotationsDebounced();
@@ -282,6 +286,8 @@
       state.redoStack = [];
       state.activeStroke = null;
       state.isErasing = false;
+      state.selectedStrokeId = null;
+      state.selectionMove = null;
       drawingManager.activeErase = null;
       if (uiMounted) {
         canvasManager.render();
@@ -294,7 +300,12 @@
       state.mode = mode;
       state.activeStroke = null;
       state.isErasing = false;
+      state.selectionMove = null;
+      if (mode !== "draw" || state.tool !== "select") {
+        state.selectedStrokeId = null;
+      }
       if (uiMounted) {
+        canvasManager.setTool(state.tool);
         canvasManager.setDrawingMode(state.enabled && mode === "draw" && state.tool !== "text");
         textManager.setMode(state.enabled ? mode : "navigate", state.tool);
       }
@@ -384,6 +395,7 @@
       try { toolbar.restoreAfterCapture(); } catch (e) {}
       if (toolbar.host) toolbar.host.style.display = session.previousToolbarVisibility || "";
       try { textManager.endCapture(); } catch (e) {}
+      canvasManager.setTool(state.tool);
       canvasManager.setDrawingMode(state.enabled && state.mode === "draw" && state.tool !== "text");
       toolbar.update();
       activeCaptureSession = null;
@@ -980,11 +992,13 @@
       if (!state.enabled) {
         state.activeStroke = null;
         state.isErasing = false;
+        state.selectionMove = null;
         state.menuOpen = false;
       }
       if (uiMounted) {
         toolbar.setVisible(state.enabled);
         canvasManager.setVisible(state.enabled);
+        canvasManager.setTool(state.tool);
         canvasManager.setDrawingMode(state.enabled && state.mode === "draw" && state.tool !== "text");
         textManager.setMode(state.enabled ? state.mode : "navigate", state.tool);
         toolbar.update();
@@ -1001,10 +1015,13 @@
       state.redoStack = [];
       state.activeStroke = null;
       state.isErasing = false;
+      state.selectedStrokeId = null;
+      state.selectionMove = null;
       drawingManager.activeErase = null;
       if (uiMounted) {
         canvasManager.render();
         textManager.render();
+        toolbar.update();
       }
     }
 
@@ -1018,6 +1035,8 @@
       state.tool = WAE.CONFIG.defaultTool;
       state.activeStroke = null;
       state.isErasing = false;
+      state.selectedStrokeId = null;
+      state.selectionMove = null;
       if (drawingBound) {
         drawingManager.destroy();
         drawingBound = false;
@@ -1042,6 +1061,7 @@
     async function setToolbarScale(scale) {
       const normalized = normalizeToolbarScale(scale);
       state.uiSettings.toolbarScale = normalized;
+      previewToolbarScale(normalized);
       const result = await storage.get([settingsKey]);
       const settings = Object.assign(defaultSettings(), result[settingsKey] || {});
       settings.siteSettings = settings.siteSettings || {};
@@ -1049,6 +1069,11 @@
         toolbarScale: normalized
       });
       await storage.set({ [settingsKey]: settings });
+    }
+
+    function previewToolbarScale(scale) {
+      const normalized = normalizeToolbarScale(scale);
+      state.uiSettings.toolbarScale = normalized;
       if (uiMounted) {
         toolbar.setScale(normalized);
         toolbar.keepInViewport();
@@ -1203,6 +1228,21 @@
           } else if (message.type === "SET_TOOLBAR_SCALE") {
             setToolbarScale(message.scale).then(() => {
               sendResponse({ ok: true, scale: state.uiSettings.toolbarScale });
+            });
+            return true;
+          } else if (message.type === "PREVIEW_TOOLBAR_SCALE") {
+            previewToolbarScale(message.scale);
+            sendResponse({ ok: true, scale: state.uiSettings.toolbarScale });
+            return false;
+          } else if (message.type === "SHOW_CLEAR_CONFIRM") {
+            if (!uiMounted) ensureMounted();
+            toolbar.showClearConfirm();
+            sendResponse({ ok: true });
+            return false;
+          } else if (message.type === "CLEAR_ANNOTATIONS") {
+            clearAnnotationState();
+            saveNow().then(() => {
+              sendResponse({ ok: true });
             });
             return true;
           }

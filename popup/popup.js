@@ -25,12 +25,15 @@
   const enabledText = document.getElementById("enabledText");
   const pageStatus = document.getElementById("pageStatus");
   const unavailableMessage = document.getElementById("unavailableMessage");
+  const clearAnnotations = document.getElementById("clearAnnotations");
   const resetPosition = document.getElementById("resetPosition");
-  const toolbarScaleGroup = document.getElementById("toolbarScaleGroup");
+  const toolbarScaleSlider = document.getElementById("toolbarScaleSlider");
+  const toolbarScaleValue = document.getElementById("toolbarScaleValue");
 
   let currentTab = null;
   let pageAvailable = false;
   let unavailableReason = "";
+  let scaleApplyTimer = 0;
 
   function getSettings() {
     return new Promise((resolve) => {
@@ -52,6 +55,12 @@
     const value = Number(scale);
     if (!Number.isFinite(value)) return 1;
     return Math.round(Math.min(Math.max(value, 0.78), 1.35) * 100) / 100;
+  }
+
+  function toolbarScaleLabel(scale) {
+    const value = normalizeToolbarScale(scale);
+    const label = value < 0.94 ? "작게" : (value < 1.12 ? "보통" : "크게");
+    return `${label} ${Math.round(value * 100)}%`;
   }
 
   function saveSettings(settings) {
@@ -202,18 +211,36 @@
     }));
   }
 
+  async function applyToolbarScale(scale) {
+    const settings = Object.assign({}, DEFAULT_SETTINGS, await getSettings());
+    settings.siteSettings = settings.siteSettings || {};
+    settings.uiSettings = Object.assign({}, DEFAULT_SETTINGS.uiSettings, settings.uiSettings || {}, {
+      toolbarScale: normalizeToolbarScale(scale)
+    });
+    await saveSettings(settings);
+    await broadcastToolbarScale(settings.uiSettings.toolbarScale);
+    render(settings);
+  }
+
+  async function previewToolbarScale(scale) {
+    const normalized = normalizeToolbarScale(scale);
+    toolbarScaleSlider.value = String(normalized);
+    toolbarScaleValue.textContent = toolbarScaleLabel(normalized);
+    if (!pageAvailable) return;
+    if (!currentTab) currentTab = await getCurrentTab();
+    await sendToCurrentTab({ type: "PREVIEW_TOOLBAR_SCALE", scale: normalized });
+  }
+
   function render(settings) {
     enabledToggle.checked = settings.globalEnabled;
     enabledText.textContent = settings.globalEnabled ? "ON" : "OFF";
     const scale = normalizeToolbarScale(settings.uiSettings && settings.uiSettings.toolbarScale);
-    toolbarScaleGroup.querySelectorAll("[data-scale]").forEach((button) => {
-      const active = Math.abs(normalizeToolbarScale(button.dataset.scale) - scale) < 0.02;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-checked", active ? "true" : "false");
-    });
+    toolbarScaleSlider.value = String(scale);
+    toolbarScaleValue.textContent = toolbarScaleLabel(scale);
     pageStatus.textContent = pageAvailable ? "\uc0ac\uc6a9 \uac00\ub2a5" : "\uc0ac\uc6a9 \ubd88\uac00";
     unavailableMessage.hidden = pageAvailable && !unavailableReason;
     unavailableMessage.textContent = unavailableReason || "\uc774 \ud398\uc774\uc9c0\uc5d0\uc11c\ub294 \ud655\uc7a5 \ud504\ub85c\uadf8\ub7a8\uc744 \uc0ac\uc6a9\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.";
+    clearAnnotations.disabled = !pageAvailable;
     resetPosition.disabled = !pageAvailable;
   }
 
@@ -258,17 +285,37 @@
     render(settings);
   });
 
-  toolbarScaleGroup.addEventListener("click", async (event) => {
-    const button = event.target.closest("[data-scale]");
-    if (!button) return;
-    const settings = Object.assign({}, DEFAULT_SETTINGS, await getSettings());
-    settings.siteSettings = settings.siteSettings || {};
-    settings.uiSettings = Object.assign({}, DEFAULT_SETTINGS.uiSettings, settings.uiSettings || {}, {
-      toolbarScale: normalizeToolbarScale(button.dataset.scale)
-    });
-    await saveSettings(settings);
-    await broadcastToolbarScale(settings.uiSettings.toolbarScale);
-    render(settings);
+  toolbarScaleSlider.addEventListener("input", () => {
+    previewToolbarScale(toolbarScaleSlider.value);
+    window.clearTimeout(scaleApplyTimer);
+    scaleApplyTimer = window.setTimeout(() => {
+      applyToolbarScale(toolbarScaleSlider.value);
+    }, 350);
+  });
+
+  toolbarScaleSlider.addEventListener("change", async () => {
+    window.clearTimeout(scaleApplyTimer);
+    await applyToolbarScale(toolbarScaleSlider.value);
+  });
+
+  clearAnnotations.addEventListener("click", async () => {
+    currentTab = await getCurrentTab();
+    clearAnnotations.disabled = true;
+    const ready = await ensureContentScript();
+    if (!ready.ok) {
+      pageAvailable = false;
+      unavailableReason = ready.reason || classifyUrl(currentTab && currentTab.url).reason;
+      render(await getSettings());
+      return;
+    }
+    const response = await sendToCurrentTab({ type: "SHOW_CLEAR_CONFIRM" });
+    if (!response.ok) {
+      pageAvailable = false;
+      unavailableReason = response.reason || classifyUrl(currentTab && currentTab.url).reason;
+      render(await getSettings());
+      return;
+    }
+    clearAnnotations.disabled = false;
   });
 
   resetPosition.addEventListener("click", async () => {

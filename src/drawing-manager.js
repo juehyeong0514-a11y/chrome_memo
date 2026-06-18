@@ -10,6 +10,7 @@
       this.onChange = onChange;
       this.nextStrokeId = 1;
       this.activeErase = null;
+      this.activeSelectionMove = null;
       this.bound = false;
       this.handlers = {
         pointerdown: (event) => this.onPointerDown(event),
@@ -82,6 +83,8 @@
       this.state.activeStroke = null;
       this.state.isErasing = false;
       this.activeErase = null;
+      this.activeSelectionMove = null;
+      this.state.selectionMove = null;
     }
 
     onPointerDown(event) {
@@ -91,6 +94,12 @@
       event.preventDefault();
       this.canvasManager.canvas.setPointerCapture(event.pointerId);
 
+      if (this.state.tool === "select") {
+        this.onSelectPointerDown(event);
+        return;
+      }
+
+      this.state.selectedStrokeId = null;
       if (this.state.tool === "eraser") {
         this.state.isErasing = true;
         this.activeErase = { ids: new Set(), items: [] };
@@ -120,10 +129,16 @@
     }
 
     onPointerMove(event) {
-      if (!this.state.enabled || (!this.state.activeStroke && !this.state.isErasing)) {
+      if (!this.state.enabled || (!this.state.activeStroke && !this.state.isErasing && !this.activeSelectionMove)) {
         return;
       }
       event.preventDefault();
+      if (this.activeSelectionMove) {
+        const point = this.canvasManager.documentPoint(event);
+        this.moveSelectedStroke(point.x - this.activeSelectionMove.startX, point.y - this.activeSelectionMove.startY);
+        this.canvasManager.requestRender();
+        return;
+      }
       if (this.state.isErasing) {
         this.eachPointerSample(event, (sample) => this.eraseAt(this.canvasManager.documentPoint(sample, this.getPointMeta(sample))));
         this.canvasManager.requestRender();
@@ -136,12 +151,24 @@
     }
 
     onPointerUp(event) {
-      if (!this.state.enabled || (!this.state.activeStroke && !this.state.isErasing)) {
+      if (!this.state.enabled || (!this.state.activeStroke && !this.state.isErasing && !this.activeSelectionMove)) {
         return;
       }
       event.preventDefault();
       if (this.canvasManager.canvas.hasPointerCapture(event.pointerId)) {
         this.canvasManager.canvas.releasePointerCapture(event.pointerId);
+      }
+
+      if (this.activeSelectionMove) {
+        const move = this.activeSelectionMove;
+        const stroke = this.getStrokeById(move.id);
+        if (stroke && move.moved) {
+          this.pushAction({ type: "move-stroke", id: stroke.id, before: move.before, after: WAE.cloneStroke(stroke) });
+        }
+        this.activeSelectionMove = null;
+        this.state.selectionMove = null;
+        this.canvasManager.render();
+        return;
       }
 
       if (this.state.activeStroke) {
@@ -157,6 +184,60 @@
       this.state.activeStroke = null;
       this.state.isErasing = false;
       this.activeErase = null;
+    }
+
+    onSelectPointerDown(event) {
+      const point = this.canvasManager.documentPoint(event);
+      const stroke = this.findStrokeAt(point);
+      this.state.activeStroke = null;
+      this.state.isErasing = false;
+      this.activeErase = null;
+      this.state.selectedStrokeId = stroke ? stroke.id : null;
+      if (this.textManager) {
+        this.textManager.selectedId = null;
+        this.textManager.updateSelectionClasses();
+      }
+      if (!stroke) {
+        this.activeSelectionMove = null;
+        this.state.selectionMove = null;
+        this.canvasManager.render();
+        return;
+      }
+      this.activeSelectionMove = {
+        id: stroke.id,
+        startX: point.x,
+        startY: point.y,
+        before: WAE.cloneStroke(stroke),
+        originalPoints: stroke.points.map((item) => Object.assign({}, item)),
+        moved: false
+      };
+      this.state.selectionMove = this.activeSelectionMove;
+      this.canvasManager.render();
+    }
+
+    findStrokeAt(point) {
+      const radius = 8;
+      for (let index = this.state.strokes.length - 1; index >= 0; index -= 1) {
+        const stroke = this.state.strokes[index];
+        if (this.strokeHitsPoint(stroke, point, radius)) {
+          return stroke;
+        }
+      }
+      return null;
+    }
+
+    moveSelectedStroke(dx, dy) {
+      const move = this.activeSelectionMove;
+      if (!move) return;
+      const stroke = this.getStrokeById(move.id);
+      if (!stroke) return;
+      if (Math.abs(dx) + Math.abs(dy) > 2) {
+        move.moved = true;
+      }
+      stroke.points = move.originalPoints.map((point) => Object.assign({}, point, {
+        x: point.x + dx,
+        y: point.y + dy
+      }));
     }
 
     forwardWheel(event) {
@@ -248,6 +329,8 @@
         this.state.strokes.push(WAE.cloneStroke(action.stroke));
       } else if (action.type === "erase") {
         action.items.forEach((item) => this.removeStrokeById(item.stroke.id));
+      } else if (action.type === "move-stroke") {
+        this.replaceStroke(action.after);
       } else if (action.type === "clear") {
         this.state.strokes = [];
         if (this.textManager) {
@@ -264,6 +347,8 @@
         this.removeStrokeById(action.stroke.id);
       } else if (action.type === "erase") {
         this.restoreErased(action.items);
+      } else if (action.type === "move-stroke") {
+        this.replaceStroke(action.before);
       } else if (action.type === "clear") {
         this.state.strokes = action.previous.map((stroke) => WAE.cloneStroke(stroke));
         if (this.textManager) {
@@ -283,6 +368,7 @@
       const previous = this.state.strokes.map((stroke) => WAE.cloneStroke(stroke));
       const previousText = hasText && this.textManager ? this.state.textItems.map((item) => this.textManager.cloneItem(item)) : [];
       this.state.strokes = [];
+      this.state.selectedStrokeId = null;
       if (this.textManager) {
         this.state.textItems = [];
         this.textManager.render();
@@ -295,6 +381,24 @@
       if (index !== -1) {
         this.state.strokes.splice(index, 1);
       }
+      if (String(this.state.selectedStrokeId) === String(id)) {
+        this.state.selectedStrokeId = null;
+      }
+    }
+
+    getStrokeById(id) {
+      return this.state.strokes.find((stroke) => String(stroke.id) === String(id));
+    }
+
+    replaceStroke(stroke) {
+      const clone = WAE.cloneStroke(stroke);
+      const index = this.state.strokes.findIndex((item) => String(item.id) === String(clone.id));
+      if (index === -1) {
+        this.state.strokes.push(clone);
+      } else {
+        this.state.strokes[index] = clone;
+      }
+      this.state.selectedStrokeId = clone.id;
     }
 
     restoreErased(items) {
