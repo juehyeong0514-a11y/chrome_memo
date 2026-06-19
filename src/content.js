@@ -1064,6 +1064,9 @@
     }
 
     function clearAnnotationState() {
+      textManager.cancelEdit();
+      textManager.interaction = null;
+      textManager.selectedId = null;
       state.strokes = [];
       state.textItems = [];
       state.undoStack = [];

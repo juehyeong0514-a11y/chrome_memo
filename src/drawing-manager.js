@@ -431,12 +431,24 @@
       }
       const previous = this.state.strokes.map((stroke) => WAE.cloneStroke(stroke));
       const previousText = hasText && this.textManager ? this.state.textItems.map((item) => this.textManager.cloneItem(item)) : [];
+      if (this.textManager) {
+        this.textManager.cancelEdit();
+        this.textManager.interaction = null;
+        this.textManager.selectedId = null;
+      }
       this.state.strokes = [];
+      this.state.activeStroke = null;
+      this.state.isErasing = false;
       this.state.selectedStrokeId = null;
+      this.state.selectionMove = null;
+      this.activeErase = null;
+      this.activeSelectionMove = null;
+      this.activeFreehandPoints = null;
       if (this.textManager) {
         this.state.textItems = [];
         this.textManager.render();
       }
+      this.canvasManager.render();
       this.pushAction({ type: "clear", previous, previousText });
     }
 
