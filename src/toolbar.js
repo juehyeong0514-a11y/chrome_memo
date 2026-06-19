@@ -34,6 +34,8 @@
       this.refs = {
         root: this.shadow.querySelector(".wae-root"),
         toggle: this.shadow.querySelector(".wae-toggle"),
+        quickTrigger: this.shadow.querySelector(".wae-quick-trigger"),
+        quickPopover: this.shadow.querySelector(".wae-quick-popover"),
         menu: this.shadow.querySelector(".wae-menu"),
         dragHandle: this.shadow.querySelector(".wae-drag-handle"),
         resizeHandle: this.shadow.querySelector(".wae-resize-handle"),
@@ -238,6 +240,11 @@
         ".wae-root.wae-orientation-vertical{--button-size:calc(40px * var(--toolbar-scale))}",
         ".wae-toggle svg{width:calc(23px * var(--toolbar-scale));height:calc(23px * var(--toolbar-scale))}",
         ".wae-toggle{position:absolute;left:var(--wae-collapsed-left,0px);top:var(--wae-collapsed-top,0px);width:var(--toggle-size);height:var(--toggle-size);border:0;border-radius:50%;background:rgba(17,24,39,.95);color:#fff;font-size:calc(17px * var(--toolbar-scale));font-weight:800;box-shadow:0 10px 24px rgba(0,0,0,.25);cursor:pointer;touch-action:none;z-index:2;transition:opacity 150ms ease,transform 150ms ease}",
+        ".wae-toggle::after{content:'';position:absolute;right:calc(3px * var(--toolbar-scale));bottom:calc(3px * var(--toolbar-scale));width:calc(10px * var(--toolbar-scale));height:calc(10px * var(--toolbar-scale));border-radius:50%;background:var(--wae-active-color,#111111);border:2px solid rgba(255,255,255,.9);box-shadow:0 0 0 1px rgba(0,0,0,.24)}",
+        ".wae-toggle::before{content:'';position:absolute;left:50%;bottom:calc(7px * var(--toolbar-scale));width:calc(17px * var(--toolbar-scale));height:var(--wae-active-width,3px);border-radius:999px;background:var(--wae-active-color,#111111);transform:translateX(-50%);box-shadow:0 0 0 1px rgba(255,255,255,.45)}",
+        ".wae-quick-trigger{position:absolute;left:calc(var(--wae-collapsed-left,0px) + var(--toggle-size) - 15px);top:calc(var(--wae-collapsed-top,0px) + var(--toggle-size) - 15px);width:18px;height:18px;border:1px solid rgba(191,219,254,.7);border-radius:50%;background:rgba(15,23,42,.98);color:#dbeafe;display:grid;place-items:center;font-size:11px;line-height:1;box-shadow:0 6px 14px rgba(0,0,0,.28);cursor:pointer;z-index:3;opacity:1;transition:opacity 150ms ease,transform 150ms ease}",
+        ".wae-quick-trigger:hover{background:#1e293b;color:#fff;transform:scale(1.06)}",
+        ".wae-root.wae-open .wae-quick-trigger,.wae-root.wae-closing .wae-quick-trigger{opacity:0;pointer-events:none;transform:scale(.85)}",
         ".wae-menu{position:absolute;left:var(--wae-menu-left,0px);top:var(--wae-menu-top,0px);display:grid;grid-template-columns:1fr;gap:var(--toolbar-gap);padding:var(--toolbar-padding);border-radius:var(--toolbar-radius);background:rgba(17,24,39,.93);box-shadow:0 16px 38px rgba(0,0,0,.32);border:1px solid rgba(148,163,184,.22);max-width:calc(100vw - 16px);overflow:visible;opacity:0;visibility:hidden;pointer-events:none;transform:scale(.85);transform-origin:var(--wae-toolbar-origin,50% 50%);transition:opacity 160ms ease,transform 160ms ease,visibility 0s linear 160ms}",
         ".wae-root.wae-open .wae-menu{opacity:1;visibility:visible;pointer-events:auto;transform:scale(1);transition:opacity 160ms ease,transform 160ms ease}",
         ".wae-root.wae-closing .wae-menu{opacity:0;visibility:visible;pointer-events:none;transform:scale(.85);transition:opacity 160ms ease,transform 160ms ease}",
@@ -289,6 +296,22 @@
         ".wae-popover.wae-open,.wae-settings-panel.wae-open{opacity:1;pointer-events:auto;transform:translate(0,0) scale(1)}",
         ".wae-popover.wae-closing,.wae-settings-panel.wae-closing{opacity:0;pointer-events:none;transform:translate(var(--wae-close-shift-x,0),var(--wae-close-shift-y,4px)) scale(.85)}",
         ".wae-popover:not(.wae-mounted),.wae-settings-panel:not(.wae-mounted){display:none}",
+        ".wae-quick-popover{width:184px;padding:8px;border-radius:12px}",
+        ".wae-quick-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;color:#e5e7eb;font-size:11px;font-weight:800}",
+        ".wae-quick-preview{display:flex;align-items:center;gap:7px;color:#cbd5e1;font-size:11px;font-weight:700}",
+        ".wae-quick-dot{width:14px;height:14px;border-radius:50%;border:1px solid rgba(255,255,255,.52);background:var(--wae-active-color,#111111)}",
+        ".wae-quick-line{width:32px;height:var(--wae-active-width,3px);border-radius:999px;background:#f8fafc}",
+        ".wae-quick-tools{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px}",
+        ".wae-quick-tool{height:30px;border:1px solid rgba(148,163,184,.22);border-radius:8px;background:rgba(255,255,255,.08);color:#f8fafc;display:grid;place-items:center;cursor:pointer}",
+        ".wae-quick-tool svg{width:18px;height:18px}",
+        ".wae-quick-tool:hover,.wae-quick-width:hover{background:rgba(255,255,255,.14)}",
+        ".wae-quick-tool.wae-active,.wae-quick-width.wae-active{border-color:#60a5fa;background:rgba(59,130,246,.30)}",
+        ".wae-quick-colors{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:8px}",
+        ".wae-quick-color{position:relative;width:22px;height:22px;border:1px solid rgba(148,163,184,.42);border-radius:50%;cursor:pointer;padding:0}",
+        ".wae-quick-color.wae-active{box-shadow:0 0 0 2px #38bdf8,0 0 0 4px rgba(56,189,248,.18)}",
+        ".wae-quick-widths{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}",
+        ".wae-quick-width{height:28px;border:1px solid rgba(148,163,184,.22);border-radius:8px;background:rgba(255,255,255,.08);display:grid;place-items:center;cursor:pointer}",
+        ".wae-quick-width span{width:26px;border-radius:999px;background:#f8fafc}",
         ".wae-pen-popover{min-width:166px;padding:6px;border-radius:12px}",
         ".wae-eraser-popover{min-width:132px;padding:6px;border-radius:12px}",
         ".wae-list-item{height:32px;border:0;border-radius:9px;background:transparent;color:#e5e7eb;display:flex;align-items:center;gap:8px;padding:0 8px;cursor:pointer;text-align:left;font-size:12px;font-weight:700}",
@@ -366,6 +389,7 @@
         "</style>",
         '<div class="wae-root">',
         '  <button class="wae-toggle" title="필기 도구 열기" aria-label="필기 도구 열기"></button>',
+        '  <button class="wae-quick-trigger" type="button" title="Quick change" aria-label="Quick change">+</button>',
         '  <div class="wae-menu">',
         '    <button class="wae-drag-handle" title="도구막대 이동" aria-label="도구막대 이동"></button>',
         '    <div class="wae-bar">',
@@ -383,6 +407,7 @@
         '    <div class="wae-resize-handle" title="도구막대 크기 조절" aria-hidden="true"></div>',
           "  </div>",
         '  <div class="wae-popover wae-pen-popover" data-popover="pen"></div>',
+        '  <div class="wae-popover wae-quick-popover" data-popover="quick"></div>',
         '  <div class="wae-popover wae-color-popover" data-popover="color">',
         '    <div class="wae-color-panel">',
         '      <div>',
@@ -457,6 +482,20 @@
         } else {
           this.openToolbar();
         }
+      });
+      this.refs.toggle.addEventListener("contextmenu", (event) => {
+        if (this.state.menuOpen) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.togglePopover("quick", this.refs.quickTrigger || this.refs.toggle);
+      });
+      this.refs.quickTrigger.addEventListener("pointerdown", (event) => {
+        event.stopPropagation();
+      });
+      this.refs.quickTrigger.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.togglePopover("quick", this.refs.quickTrigger);
       });
       this.refs.penMainButton.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -566,12 +605,18 @@
         const textSetting = event.target.closest("[data-text-setting]");
         const textColor = event.target.closest("[data-text-color-target]");
         const clearAll = event.target.closest("[data-clear-all]");
+        const quickTool = event.target.closest("[data-quick-tool]");
+        const quickColor = event.target.closest("[data-quick-color]");
+        const quickWidth = event.target.closest("[data-quick-width]");
         if (pen) this.selectPenType(pen.dataset.penType);
         if (penTool) this.selectPenTool(penTool.dataset.penTool);
         if (color) this.selectColor(color.dataset.color);
         if (custom) this.togglePopover('color', this.refs.colorButton);
         if (width) this.selectWidth(Number(width.dataset.widthChoice), false);
         if (eraserSize) this.selectEraserSize(Number(eraserSize.dataset.eraserSize), false);
+        if (quickTool) this.selectQuickTool(quickTool.dataset.quickTool);
+        if (quickColor) this.selectQuickColor(quickColor.dataset.quickColor);
+        if (quickWidth) this.selectQuickWidth(Number(quickWidth.dataset.quickWidth));
         if (textSetting) this.applyTextSetting(textSetting);
         if (textColor) {
           this.colorTarget = "textColor";
@@ -643,6 +688,7 @@
 
     getPopover(type) {
       return {
+        quick: this.refs.quickPopover,
         pen: this.refs.penPopover,
         color: this.refs.colorPopover,
         width: this.refs.widthPopover,
@@ -655,6 +701,7 @@
 
     getAnchor(type) {
       return {
+        quick: this.refs.quickTrigger || this.refs.toggle,
         pen: this.refs.penButton,
         color: this.refs.colorButton,
         width: this.refs.widthButton,
@@ -770,7 +817,7 @@
     }
 
     closeAllPopovers(exceptType) {
-      ["pen", "color", "width", "text", "capture", "eraser", "settings"].forEach((type) => {
+      ["quick", "pen", "color", "width", "text", "capture", "eraser", "settings"].forEach((type) => {
         if (type !== exceptType) {
           this.closePopover({ type, anchorElement: this.getAnchor(type), keepPositionDuringClose: true });
         }
@@ -1072,6 +1119,62 @@
 
     hideClearConfirm() {
       this.refs.clearConfirm.classList.remove("wae-open");
+    }
+
+    renderQuickPopover(settings) {
+      if (!this.refs.quickPopover) return;
+      const currentColor = WAE.normalizeColor(settings && settings.color) || WAE.CONFIG.defaultColor;
+      const currentWidth = Number(settings && settings.width) || WAE.CONFIG.defaultWidth;
+      const tools = [
+        { id: "pen", icon: WAE.getPenType(this.state.selectedPenType).icon, label: "Pen" },
+        { id: "highlighter", icon: "highlighter", label: "Highlighter" },
+        { id: "eraser", icon: "eraser", label: "Eraser" },
+        { id: "navigate", icon: "eye", label: "Navigate" }
+      ];
+      const toolMarkup = tools.map((tool) => {
+        const active = tool.id === "navigate" ? this.state.mode === "navigate" : this.state.mode === "draw" && this.state.tool === tool.id;
+        return `<button class="wae-quick-tool${active ? " wae-active" : ""}" data-quick-tool="${tool.id}" title="${tool.label}" aria-label="${tool.label}">${this.icon(tool.icon)}</button>`;
+      }).join("");
+      const colorMarkup = WAE.CONFIG.colors.map((color) => {
+        const active = WAE.normalizeColor(color) === currentColor;
+        return `<button class="wae-quick-color${active ? " wae-active" : ""}" data-quick-color="${color}" title="${color}" aria-label="${color}" style="background:${color}"></button>`;
+      }).join("");
+      const widthMarkup = WAE.CONFIG.widths.map((width) => {
+        const active = Number(width.value) === Number(currentWidth);
+        return `<button class="wae-quick-width${active ? " wae-active" : ""}" data-quick-width="${width.value}" title="${width.label}" aria-label="${width.label}"><span style="height:${Math.max(2, width.value)}px"></span></button>`;
+      }).join("");
+      this.refs.quickPopover.innerHTML = [
+        '<div class="wae-quick-head"><span>Quick change</span><span class="wae-quick-preview"><span class="wae-quick-dot"></span><span class="wae-quick-line"></span></span></div>',
+        `<div class="wae-quick-tools">${toolMarkup}</div>`,
+        `<div class="wae-quick-colors">${colorMarkup}</div>`,
+        `<div class="wae-quick-widths">${widthMarkup}</div>`
+      ].join("");
+    }
+
+    selectQuickTool(tool) {
+      if (!["pen", "highlighter", "eraser", "navigate"].includes(tool)) return;
+      this.closePopover({ type: "quick", anchorElement: this.refs.quickTrigger, keepPositionDuringClose: true });
+      if (tool === "navigate") {
+        if (this.state.mode !== "navigate") this.handlers.onMode();
+      } else {
+        this.handlers.onTool(tool);
+      }
+      this.update();
+    }
+
+    selectQuickColor(color) {
+      const normalized = WAE.normalizeColor(color);
+      if (!normalized) return;
+      this.updateCurrentPen({ color: normalized });
+      this.handlers.onColor(normalized);
+      this.closePopover({ type: "quick", anchorElement: this.refs.quickTrigger, keepPositionDuringClose: true });
+      this.update();
+    }
+
+    selectQuickWidth(width) {
+      this.applyWidthValue(width, { commit: true });
+      this.closePopover({ type: "quick", anchorElement: this.refs.quickTrigger, keepPositionDuringClose: true });
+      this.update();
     }
 
     renderPenPopover() {
@@ -1385,6 +1488,8 @@
       this.refs.root.classList.toggle("wae-closing", this.toolbarClosing);
       this.refs.root.classList.toggle("wae-orientation-vertical", orientation === "vertical");
       this.refs.root.classList.toggle("wae-orientation-horizontal", orientation !== "vertical");
+      this.refs.root.style.setProperty("--wae-active-color", penSettings.color);
+      this.refs.root.style.setProperty("--wae-active-width", `${Math.max(2, Math.min(12, penSettings.width))}px`);
       this.refs.penIcon.innerHTML = this.icon(activePenIcon);
       this.refs.toggle.innerHTML = this.icon(activePenIcon);
       this.refs.toggle.title = this.t("openTools");
@@ -1415,6 +1520,7 @@
       this.refs.undo.disabled = this.state.undoStack.length === 0;
       this.refs.redo.disabled = this.state.redoStack.length === 0;
       this.refs.hide.textContent = this.state.hidden ? "Show" : "Hide";
+      if (!this.isPopoverClosing("quick")) this.renderQuickPopover(penSettings);
       if (!this.isPopoverClosing("pen")) this.renderPenPopover();
       if (!this.isPopoverClosing("color") && !this.isPopoverClosing("settings")) this.renderColorPopover(penSettings.color);
       if (!this.isPopoverClosing("eraser") && this.activePopover !== "eraser") {
@@ -1587,6 +1693,7 @@
     }
 
     repositionOpenPopovers() {
+      this.positionPopover(this.refs.quickPopover, this.refs.quickTrigger || this.refs.toggle);
       this.positionPopover(this.refs.penPopover, this.refs.penButton);
       this.positionPopover(this.refs.colorPopover, this.refs.colorButton);
       this.positionPopover(this.refs.widthPopover, this.refs.widthButton);
