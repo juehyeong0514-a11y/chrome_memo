@@ -32,6 +32,9 @@
     }
 
     mount() {
+      document.querySelectorAll(".wae-text-layer").forEach((layer) => {
+        if (layer !== this.layer) layer.remove();
+      });
       if (!document.documentElement.contains(this.layer)) {
         document.documentElement.appendChild(this.layer);
       }

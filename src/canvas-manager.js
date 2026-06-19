@@ -37,6 +37,12 @@
       if (this.mounted) {
         return;
       }
+      document.querySelectorAll(".wae-canvas").forEach((canvas) => {
+        if (canvas !== this.canvas) canvas.remove();
+      });
+      document.querySelectorAll(".wae-tool-cursor-preview").forEach((preview) => {
+        if (preview !== this.eraserPreview) preview.remove();
+      });
       if (!document.documentElement.contains(this.canvas)) {
         document.documentElement.appendChild(this.canvas);
       }

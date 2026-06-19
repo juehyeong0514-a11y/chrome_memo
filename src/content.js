@@ -18,6 +18,7 @@
     const penSettingsKeys = WAE.getPenSettingsKeys();
     const eraserSettingsKeys = WAE.getEraserSettingsKeys();
     const textSettingsKeys = WAE.getTextSettingsKeys();
+    let suppressSettingsEnabledChange = false;
     const state = {
       enabled: true,
       menuOpen: false,
@@ -1169,23 +1170,40 @@
     }
 
     async function setExtensionEnabled(enabled, options = {}) {
-      await saveSettings(enabled);
-      if (!enabled && options.destroyUI) {
-        if (options.clearAnnotations !== false) {
-          clearAnnotationState();
-          await saveNow();
-          destroyRuntime(false);
-        } else {
-          await saveNowWithCurrentEdit();
-          destroyRuntime(false);
+      suppressSettingsEnabledChange = true;
+      try {
+        await saveSettings(enabled);
+        if (!enabled && options.destroyUI) {
+          if (options.clearAnnotations !== false) {
+            clearAnnotationState();
+            await saveNow();
+            destroyRuntime(false);
+          } else {
+            await saveNowWithCurrentEdit();
+            destroyRuntime(false);
+          }
+          return;
         }
+        applyEnabled(enabled);
+        if (enabled) {
+          clearAnnotationState();
+          await restore();
+        }
+      } finally {
+        window.setTimeout(() => {
+          suppressSettingsEnabledChange = false;
+        }, 0);
+      }
+    }
+
+    async function applyGlobalEnabledFromStorage(enabled) {
+      if (enabled) {
+        await restore();
         return;
       }
-      applyEnabled(enabled);
-      if (enabled) {
-        clearAnnotationState();
-        await restore();
-      }
+      clearAnnotationState();
+      await saveNow();
+      destroyRuntime(false);
     }
 
     function resetToolbarPosition() {
@@ -1331,6 +1349,21 @@
           }
           return false;
         });
+      });
+    }
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (suppressSettingsEnabledChange || areaName !== "local" || !changes[settingsKey]) {
+          return;
+        }
+        const nextSettings = changes[settingsKey].newValue || {};
+        const previousSettings = changes[settingsKey].oldValue || {};
+        const nextEnabled = nextSettings.globalEnabled !== false;
+        const previousEnabled = previousSettings.globalEnabled !== false;
+        if (nextEnabled === previousEnabled || nextEnabled === state.enabled) {
+          return;
+        }
+        applyGlobalEnabledFromStorage(nextEnabled);
       });
     }
     patchHistory("pushState");

@@ -29,6 +29,9 @@
     }
 
     mount(savedPosition) {
+      document.querySelectorAll(".wae-toolbar-host").forEach((host) => {
+        if (host !== this.host) host.remove();
+      });
       this.shadow.innerHTML = this.template();
       document.documentElement.appendChild(this.host);
       this.refs = {
