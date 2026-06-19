@@ -24,6 +24,7 @@
       this.mounted = false;
       this.boundPreview = false;
       this.resizeHandler = () => this.scheduleResize();
+      this.scrollHandler = () => this.requestRender();
       this.previewHandlers = {
         pointermove: (event) => this.updateEraserPreview(event),
         pointerdown: (event) => this.updateEraserPreview(event),
@@ -48,6 +49,8 @@
       this.installObservers();
       this.bindEraserPreview();
       window.addEventListener("resize", this.resizeHandler);
+      window.addEventListener("scroll", this.scrollHandler, true);
+      window.addEventListener("wae:scroll-context-change", this.scrollHandler);
       this.watchDevicePixelRatio();
       this.mounted = true;
     }
@@ -206,17 +209,18 @@
 
     documentPoint(event, meta = {}) {
       return {
-        x: event.clientX + this.scroll.getScrollX(),
-        y: event.clientY + this.scroll.getScrollY(),
+        x: event.clientX + this.scroll.getScrollX() + WAE.getActiveScrollOffset().x,
+        y: event.clientY + this.scroll.getScrollY() + WAE.getActiveScrollOffset().y,
         pressure: Number.isFinite(Number(meta.pressure)) ? Number(meta.pressure) : 0.5,
         time: Number.isFinite(Number(meta.time)) ? Number(meta.time) : Date.now()
       };
     }
 
     viewportPoint(point) {
+      const offset = WAE.getActiveScrollOffset();
       return {
-        x: point.x,
-        y: point.y
+        x: point.x - offset.x,
+        y: point.y - offset.y
       };
     }
 
@@ -324,6 +328,8 @@
         this.renderFrame = 0;
       }
       window.removeEventListener("resize", this.resizeHandler);
+      window.removeEventListener("scroll", this.scrollHandler, true);
+      window.removeEventListener("wae:scroll-context-change", this.scrollHandler);
       if (this.dprQuery && this.dprHandler) {
         this.dprQuery.removeEventListener("change", this.dprHandler);
       }
@@ -392,16 +398,17 @@
 
     strokeBounds(stroke) {
       if (!stroke || !stroke.points || !stroke.points.length) return null;
-      return stroke.points.reduce((bounds, point) => ({
+      const points = stroke.points.map((point) => this.viewportPoint(point));
+      return points.reduce((bounds, point) => ({
         left: Math.min(bounds.left, point.x),
         top: Math.min(bounds.top, point.y),
         right: Math.max(bounds.right, point.x),
         bottom: Math.max(bounds.bottom, point.y)
       }), {
-        left: stroke.points[0].x,
-        top: stroke.points[0].y,
-        right: stroke.points[0].x,
-        bottom: stroke.points[0].y
+        left: points[0].x,
+        top: points[0].y,
+        right: points[0].x,
+        bottom: points[0].y
       });
     }
 

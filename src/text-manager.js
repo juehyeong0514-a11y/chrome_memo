@@ -23,6 +23,7 @@
         keydown: (event) => this.onKeydown(event),
         pointermove: (event) => this.onPointerMove(event),
         pointerup: (event) => this.onPointerUp(event),
+        wheel: (event) => WAE.forwardWheelScroll(event),
         scroll: () => {
           if (!this.editing) this.render();
         },
@@ -75,6 +76,7 @@
       if (this.bound) return;
       this.layer.addEventListener("pointerdown", this.handlers.pointerdown, true);
       this.layer.addEventListener("dblclick", this.handlers.dblclick, true);
+      this.layer.addEventListener("wheel", this.handlers.wheel, { capture: true, passive: false });
       window.addEventListener("keydown", this.handlers.keydown, true);
       window.addEventListener("pointermove", this.handlers.pointermove, true);
       window.addEventListener("pointerup", this.handlers.pointerup, true);
@@ -89,6 +91,7 @@
       this.bound = false;
       this.layer.removeEventListener("pointerdown", this.handlers.pointerdown, true);
       this.layer.removeEventListener("dblclick", this.handlers.dblclick, true);
+      this.layer.removeEventListener("wheel", this.handlers.wheel, { capture: true, passive: false });
       window.removeEventListener("keydown", this.handlers.keydown, true);
       window.removeEventListener("pointermove", this.handlers.pointermove, true);
       window.removeEventListener("pointerup", this.handlers.pointerup, true);
@@ -161,6 +164,7 @@
     }
 
     onLayerPointerDown(event) {
+      WAE.activateScrollContextFromPoint(event.clientX, event.clientY);
       const deleteButton = event.target.closest && event.target.closest(".wae-text-delete");
       if (deleteButton) {
         event.preventDefault();
@@ -202,7 +206,8 @@
       event.preventDefault();
       event.stopPropagation();
       this.commitEdit();
-      const item = this.createItem(event.clientX + window.scrollX, event.clientY + window.scrollY, "");
+      const point = this.documentPoint(event);
+      const item = this.createItem(point.x, point.y, "");
       this.state.textItems.push(item);
       this.selectedId = item.id;
       this.render();
@@ -540,8 +545,8 @@
       content.textContent = item.text || "";
       const settings = WAE.normalizeTextSettings(item.settings || this.state.textSettings);
       Object.assign(box.style, {
-        left: `${item.x}px`,
-        top: `${item.y}px`,
+        left: `${this.viewportX(item.x)}px`,
+        top: `${this.viewportY(item.y)}px`,
         width: `${this.getItemWidth(item)}px`,
         height: `${this.getItemHeight(item)}px`,
         color: settings.color,
@@ -630,6 +635,22 @@
 
     getItemHeight(item) {
       return Number.isFinite(Number(item.height)) ? Math.max(30, Number(item.height)) : 36;
+    }
+
+    documentPoint(event) {
+      const offset = WAE.getActiveScrollOffset();
+      return {
+        x: event.clientX + window.scrollX + offset.x,
+        y: event.clientY + window.scrollY + offset.y
+      };
+    }
+
+    viewportX(x) {
+      return Number(x) - WAE.getActiveScrollOffset().x;
+    }
+
+    viewportY(y) {
+      return Number(y) - WAE.getActiveScrollOffset().y;
     }
 
     escapeSelectorValue(value) {

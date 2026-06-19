@@ -1705,7 +1705,11 @@
 
     defaultPosition() {
       const size = this.getToolbarSize();
-      return this.toRatioPosition(window.innerWidth - size.width - 20, (window.innerHeight - size.height) / 2);
+      return this.toRatioPosition(window.innerWidth - size.width - 20, this.defaultPositionY(size.height));
+    }
+
+    defaultPositionY(toolbarHeight) {
+      return (window.innerHeight - toolbarHeight) * 0.2;
     }
 
     getToolbarSize() {
@@ -1747,7 +1751,7 @@
       if (position && Number.isFinite(Number(position.x)) && Number.isFinite(Number(position.y))) {
         return { x: Number(position.x), y: Number(position.y) };
       }
-      return { x: window.innerWidth - WAE.CONFIG.buttonSize - 16, y: (window.innerHeight - WAE.CONFIG.buttonSize) / 2 };
+      return { x: window.innerWidth - WAE.CONFIG.buttonSize - 16, y: this.defaultPositionY(WAE.CONFIG.buttonSize) };
     }
 
     applyStoredPosition(position) {

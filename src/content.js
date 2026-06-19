@@ -24,7 +24,7 @@
       penListOpen: false,
       colorOpen: false,
       settingsOpen: false,
-      mode: "navigate",
+      mode: "draw",
       tool: WAE.CONFIG.defaultTool,
       color: WAE.CONFIG.defaultColor,
       width: WAE.CONFIG.defaultWidth,
@@ -367,6 +367,11 @@
       if (uiMounted) {
         toolbar.update();
       }
+    }
+
+    function enterDefaultPenMode() {
+      state.tool = WAE.CONFIG.defaultTool;
+      setMode("draw");
     }
 
     function getCursorPreviewSize() {
@@ -1037,6 +1042,7 @@
       state.enabled = Boolean(enabled);
       if (state.enabled) {
         ensureMounted();
+        enterDefaultPenMode();
       }
       if (!state.enabled) {
         state.activeStroke = null;
@@ -1258,7 +1264,7 @@
     }
 
     state.memoryPageKey = WAE.getPageKey();
-    setMode("navigate");
+    enterDefaultPenMode();
     restore();
 
     window.addEventListener("keydown", handleKeydown, true);

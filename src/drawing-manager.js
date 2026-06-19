@@ -95,6 +95,7 @@
       if (!this.state.enabled || this.state.mode !== "draw" || event.button !== 0) {
         return;
       }
+      WAE.activateScrollContextFromPoint(event.clientX, event.clientY);
       event.preventDefault();
       this.canvasManager.canvas.setPointerCapture(event.pointerId);
 
@@ -246,7 +247,7 @@
     }
 
     forwardWheel(event) {
-      window.scrollBy({ top: event.deltaY, left: event.deltaX, behavior: "auto" });
+      WAE.forwardWheelScroll(event);
     }
 
     getPointMeta(event) {
@@ -258,7 +259,8 @@
       if (event.pointerType === "pen" && Number.isFinite(pressure) && pressure > 0) {
         pressure = WAE.clamp(pressure, 0.05, 1);
       } else if (event.pointerType === "mouse" && previous) {
-        const distance = Math.hypot(event.clientX + window.scrollX - previous.x, event.clientY + window.scrollY - previous.y);
+        const offset = WAE.getActiveScrollOffset();
+        const distance = Math.hypot(event.clientX + window.scrollX + offset.x - previous.x, event.clientY + window.scrollY + offset.y - previous.y);
         const elapsed = Math.max(1, now - previous.time);
         const speed = distance / elapsed;
         pressure = WAE.clamp(1 - speed / 2.2, 0.2, 0.95);

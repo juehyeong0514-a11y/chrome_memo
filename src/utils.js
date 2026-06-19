@@ -2,6 +2,7 @@
   "use strict";
 
   const WAE = window.WebAnnotationExtension || {};
+  let activeScrollTarget = null;
 
   const CONFIG = {
     storagePrefix: "wae:v1:",
@@ -82,6 +83,173 @@
         return window.scrollY || document.documentElement.scrollTop || 0;
       }
     };
+  }
+
+  function forwardWheelScroll(event) {
+    const delta = normalizeWheelDelta(event);
+    if (!delta.x && !delta.y) {
+      return false;
+    }
+
+    const target = findWheelScrollTarget(event, delta.x, delta.y);
+    if (!target) {
+      return false;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    setActiveScrollTarget(target);
+    target.scrollBy({ left: delta.x, top: delta.y, behavior: "auto" });
+    window.requestAnimationFrame(() => dispatchScrollContextChange());
+    return true;
+  }
+
+  function normalizeWheelDelta(event) {
+    let scale = 1;
+    if (event.deltaMode === 1) {
+      scale = 16;
+    } else if (event.deltaMode === 2) {
+      scale = window.innerHeight;
+    }
+    return {
+      x: event.deltaX * scale,
+      y: event.deltaY * scale
+    };
+  }
+
+  function findWheelScrollTarget(event, deltaX, deltaY) {
+    const elements = typeof document.elementsFromPoint === "function"
+      ? document.elementsFromPoint(event.clientX, event.clientY)
+      : [document.elementFromPoint(event.clientX, event.clientY)].filter(Boolean);
+
+    for (const element of elements) {
+      if (!element || isWebAnnotationElement(element)) {
+        continue;
+      }
+      const scrollTarget = findScrollableAncestor(element, deltaX, deltaY);
+      if (scrollTarget) {
+        return scrollTarget;
+      }
+    }
+
+    return findScrollableAncestor(document.scrollingElement || document.documentElement, deltaX, deltaY);
+  }
+
+  function activateScrollContextFromPoint(clientX, clientY) {
+    const target = findScrollTargetFromPoint(clientX, clientY);
+    setActiveScrollTarget(target);
+    return target;
+  }
+
+  function findScrollTargetFromPoint(clientX, clientY) {
+    const elements = typeof document.elementsFromPoint === "function"
+      ? document.elementsFromPoint(clientX, clientY)
+      : [document.elementFromPoint(clientX, clientY)].filter(Boolean);
+
+    for (const element of elements) {
+      if (!element || isWebAnnotationElement(element)) {
+        continue;
+      }
+      const scrollTarget = findAnyScrollableAncestor(element);
+      if (scrollTarget) {
+        return scrollTarget;
+      }
+    }
+
+    return document.scrollingElement || document.documentElement;
+  }
+
+  function setActiveScrollTarget(target) {
+    const scrollingElement = document.scrollingElement || document.documentElement;
+    activeScrollTarget = target && target !== scrollingElement && target !== document.documentElement && target !== document.body
+      ? target
+      : null;
+  }
+
+  function getActiveScrollOffset() {
+    if (!activeScrollTarget || !document.documentElement.contains(activeScrollTarget)) {
+      activeScrollTarget = null;
+      return { x: 0, y: 0 };
+    }
+    return {
+      x: activeScrollTarget.scrollLeft || 0,
+      y: activeScrollTarget.scrollTop || 0
+    };
+  }
+
+  function dispatchScrollContextChange() {
+    window.dispatchEvent(new CustomEvent("wae:scroll-context-change"));
+  }
+
+  function isWebAnnotationElement(element) {
+    return Boolean(element.closest && element.closest(".wae-canvas,.wae-text-layer,.wae-tool-cursor-preview"));
+  }
+
+  function findScrollableAncestor(element, deltaX, deltaY) {
+    for (let current = element; current; current = current.parentElement) {
+      if (canScrollElement(current, deltaX, deltaY)) {
+        return current;
+      }
+    }
+    const scrollingElement = document.scrollingElement || document.documentElement;
+    return canScrollElement(scrollingElement, deltaX, deltaY) ? scrollingElement : null;
+  }
+
+  function findAnyScrollableAncestor(element) {
+    for (let current = element; current; current = current.parentElement) {
+      if (isScrollableElement(current)) {
+        return current;
+      }
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
+  function canScrollElement(element, deltaX, deltaY) {
+    if (!element) {
+      return false;
+    }
+    const style = window.getComputedStyle(element);
+    return canScrollAxis(element, deltaY, "Y", style) || canScrollAxis(element, deltaX, "X", style);
+  }
+
+  function canScrollAxis(element, delta, axis, style) {
+    if (!delta) {
+      return false;
+    }
+    const scrollingElement = document.scrollingElement || document.documentElement;
+    const isRootScroller = element === scrollingElement || element === document.documentElement || element === document.body;
+    const overflow = axis === "Y" ? style.overflowY : style.overflowX;
+    if (!isRootScroller && !/(auto|scroll|overlay)/.test(overflow)) {
+      return false;
+    }
+    const scrollSize = axis === "Y" ? element.scrollHeight : element.scrollWidth;
+    const clientSize = axis === "Y" ? element.clientHeight : element.clientWidth;
+    if (scrollSize <= clientSize + 1) {
+      return false;
+    }
+    const position = axis === "Y" ? element.scrollTop : element.scrollLeft;
+    const max = scrollSize - clientSize;
+    return delta < 0 ? position > 0 : position < max;
+  }
+
+  function isScrollableElement(element) {
+    if (!element) {
+      return false;
+    }
+    const style = window.getComputedStyle(element);
+    return isScrollableAxis(element, "Y", style) || isScrollableAxis(element, "X", style);
+  }
+
+  function isScrollableAxis(element, axis, style) {
+    const scrollingElement = document.scrollingElement || document.documentElement;
+    const isRootScroller = element === scrollingElement || element === document.documentElement || element === document.body;
+    const overflow = axis === "Y" ? style.overflowY : style.overflowX;
+    if (!isRootScroller && !/(auto|scroll|overlay)/.test(overflow)) {
+      return false;
+    }
+    const scrollSize = axis === "Y" ? element.scrollHeight : element.scrollWidth;
+    const clientSize = axis === "Y" ? element.clientHeight : element.clientWidth;
+    return scrollSize > clientSize + 1;
   }
 
   function getPageKey() {
@@ -212,6 +380,9 @@
   WAE.CONFIG = CONFIG;
   WAE.safeRun = safeRun;
   WAE.getScrollAdapter = getScrollAdapter;
+  WAE.forwardWheelScroll = forwardWheelScroll;
+  WAE.activateScrollContextFromPoint = activateScrollContextFromPoint;
+  WAE.getActiveScrollOffset = getActiveScrollOffset;
   WAE.getPageKey = getPageKey;
   WAE.getPositionKey = getPositionKey;
   WAE.getPenSettingsKeys = getPenSettingsKeys;
